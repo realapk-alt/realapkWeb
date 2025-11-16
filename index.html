@@ -2,304 +2,465 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Real Apk - Apps</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Real Apk — App Store</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* Small custom tweaks to better match reference */
     :root{
-      --bg:#0f1724;       /* deep navy */
-      --card:#172033;     /* card bg */
-      --muted:#9aa4b2;    /* muted text */
-      --accent:#6ea8ff;   /* accent blue */
-      --pill:#24303c;
+      --bg:#0f1724; --card:#152033; --muted:#9aa4b2; --accent:#6ea8ff; --pill:#24303c;
     }
-    body { background:var(--bg); color:#e6eef8; font-family:Inter, system-ui, Arial; }
+    html,body,#root{height:100%}
+    body{background:var(--bg); color:#e6eef8; font-family:Inter, system-ui, Arial;}
     .card-shadow{ box-shadow: 0 10px 25px rgba(2,6,23,0.6); }
-    /* big rounded cards */
-    .round-card { border-radius: 20px; background: var(--card); padding:16px; }
-    /* featured large card */
-    .featured-card { min-width:320px; max-width:420px; border-radius:18px; padding:18px; }
-    .soft-pill { background:var(--pill); padding:6px 10px; border-radius:999px; color:var(--muted); font-weight:600; }
-    .btn-primary { background:linear-gradient(180deg,#6ea8ff,#3b82f6); color:white; padding:8px 14px; border-radius:10px; font-weight:700; display:inline-block; }
-    /* search pill in header */
-    .search-pill{ background:var(--card); border-radius:999px; padding:10px 14px; display:flex; gap:8px; align-items:center; min-width:220px; }
-    /* loader */
-    .loader { width:72px; height:72px; border-radius:50%; border:8px solid rgba(255,255,255,0.08); border-top-color: #6ea8ff; animation:spin 1s linear infinite; margin: 18px auto; }
-    @keyframes spin{ to { transform: rotate(360deg);} }
-    /* responsive tweaks */
-    @media (max-width:640px){
-      .featured-card{ min-width:280px; }
-    }
+    .rounded-2xl-strong{ border-radius:22px; }
+    /* featured look */
+    .featured-card { min-width:320px; max-width:420px; border-radius:20px; padding:18px; background:linear-gradient(180deg,#111827,#0f1724); }
+    .loader-ring{ width:72px;height:72px;border-radius:999px;border:8px solid rgba(255,255,255,0.06); border-top-color:var(--accent); animation:spin 1s linear infinite;}
+    @keyframes spin{ to { transform: rotate(360deg); } }
+    /* screenshots slider */
+    .screens-slider { display:flex; gap:12px; overflow-x:auto; padding-bottom:8px; }
+    .screens-slider img{min-width:200px; max-width:320px; border-radius:12px; object-fit:cover;}
+    /* small utilities */
+    .pill { background:var(--pill); padding:6px 10px; border-radius:999px; color:var(--muted); font-weight:600; }
+    /* hide scrollbar (small) */
+    .no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar{ -ms-overflow-style: none; scrollbar-width: none; }
+    /* detail hero */
+    .hero-bg{ background: radial-gradient(circle at 20% 20%, rgba(110,168,255,0.06), transparent 10%), linear-gradient(180deg,#071029,#0b1220); }
+    /* small responsive */
+    @media (max-width:640px){ .featured-card{ min-width:300px } }
   </style>
 </head>
 <body>
-  <div id="root"></div>
+<div id="root"></div>
 
-  <!-- React + Babel for single-file -->
-  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/babel-standalone@6.26.0/babel.min.js"></script>
+<!-- React + Babel -->
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/babel-standalone@6.26.0/babel.min.js"></script>
 
-  <!-- Firebase compat -->
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+<!-- Firebase compat -->
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
 
-  <script type="text/babel">
-  const { useState, useEffect, useRef } = React;
+<script type="text/babel">
+const {useState,useEffect,useRef} = React;
 
-  /***********************
-   * FIREBASE CONFIG - inserted
-   ***********************/
-  const FIREBASE_CONFIG = {
-    apiKey: "AIzaSyDAoDGn6lymDsAia_SNue37MiyfD80pFKU",
-    authDomain: "website-builder-e975c.firebaseapp.com",
-    projectId: "website-builder-e975c",
-    storageBucket: "website-builder-e975c.firebasestorage.app",
-    messagingSenderId: "200054863866",
-    appId: "1:200054863866:web:fe88010678557c7f9f9643",
-    measurementId: "G-84KLJLYTPZ"
-  };
+/* ---------------------
+   FIREBASE CONFIG - INSERT YOUR CONFIG (already set)
+   --------------------- */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDAoDGn6lymDsAia_SNue37MiyfD80pFKU",
+  authDomain: "website-builder-e975c.firebaseapp.com",
+  projectId: "website-builder-e975c",
+  storageBucket: "website-builder-e975c.firebasestorage.app",
+  messagingSenderId: "200054863866",
+  appId: "1:200054863866:web:fe88010678557c7f9f9643",
+  measurementId: "G-84KLJLYTPZ"
+};
 
-  firebase.initializeApp(FIREBASE_CONFIG);
-  const db = firebase.firestore();
+firebase.initializeApp(FIREBASE_CONFIG);
+const db = firebase.firestore();
 
-  /***********************
-   * Helper: detect download hash
-   ***********************/
-  function getDownloadHash(){
-    const h = window.location.hash || '';
-    if(h.startsWith('#dl:')) return h.slice(4);
-    return null;
-  }
+/* helpers for hash routing */
+function getHash(){
+  const h = window.location.hash||'';
+  if(h.startsWith('#post:')) return {route:'post', id:h.slice(6)};
+  if(h === '#adminsecret') return {route:'admin'};
+  return {route:'home'};
+}
 
-  /***********************
-   * App component
-   ***********************/
-  function App(){
-    const [apps, setApps] = useState([]);
-    const [featured, setFeatured] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState('');
-    const dlId = getDownloadHash();
+/* open new tab with post hash */
+function openPostInNewTab(id){
+  const url = window.location.origin + window.location.pathname + '#post:' + id;
+  window.open(url,'_blank');
+}
 
-    useEffect(()=>{
-      // subscribe to apps
-      const unsub = db.collection('apps').orderBy('createdAt','desc')
-        .onSnapshot(snap=>{
-          const arr=[];
-          snap.forEach(d=>arr.push({id:d.id, ...d.data()}));
-          setApps(arr);
-          setFeatured(arr.filter(a=>a.isFeatured).slice(0,10));
-          setLoading(false);
-        }, err=>{ console.error(err); setLoading(false); });
-      return ()=>unsub();
-    },[]);
-
-    // if hash contains download id, show Download page
-    if(dlId){
-      return <DownloadPage id={dlId} />;
-    }
-
-    const filtered = apps.filter(a=>{
-      if(!search) return true;
-      const s=search.toLowerCase();
-      return (a.name||'').toLowerCase().includes(s) || (a.description||'').toLowerCase().includes(s);
-    });
-
-    return (
-      <div className="min-h-screen max-w-3xl mx-auto p-4">
-        <Header onSearch={setSearch} />
-
-        <main className="mt-6">
-          {/* Featured */}
-          <section>
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 style={{fontSize:26,fontWeight:800}}>🔥 Featured Apps</h2>
-                <div style={{color:'var(--muted)'}}>Premium Selections</div>
-              </div>
-              <div className="soft-pill">Featured</div>
+/* App */
+function App(){
+  const [apps,setApps] = useState([]);
+  const [featured,setFeatured] = useState([]);
+  const [loading,setLoading] = useState(true);
+  const [q,setQ] = useState('');
+  const [route,setRoute] = useState(getHash());
+  // listen to hash changes
+  useEffect(()=>{ function onHash(){ setRoute(getHash()); } window.addEventListener('hashchange',onHash); return ()=>window.removeEventListener('hashchange',onHash); },[]);
+  useEffect(()=> {
+    const unsub = db.collection('apps').orderBy('createdAt','desc').onSnapshot(snap=>{
+      const arr=[]; snap.forEach(d=>arr.push({id:d.id,...d.data()}));
+      setApps(arr);
+      setFeatured(arr.filter(a=>a.isFeatured).slice(0,8));
+      setLoading(false);
+    },err=>{ console.error(err); setLoading(false); });
+    return ()=>unsub();
+  },[]);
+  if(route.route === 'admin') return <AdminWrapper />;
+  if(route.route === 'post') return <DetailPage id={route.id} />;
+  // home
+  const filtered = apps.filter(a => {
+    if(!q) return true;
+    const s = q.toLowerCase();
+    return (a.name||'').toLowerCase().includes(s) || (a.description||'').toLowerCase().includes(s);
+  });
+  const latest = apps.slice(0,4);
+  return (
+    <div className="min-h-screen max-w-3xl mx-auto p-4">
+      <Header onSearch={setQ} />
+      <main className="mt-6">
+        {/* Featured */}
+        <section>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-extrabold">🔥 Featured Apps</h2>
+              <div className="text-sm text-gray-400">Premium selections</div>
             </div>
-
-            <div className="mt-4 flex gap-4 overflow-x-auto pb-4">
-              {featured.length === 0 && <div style={{color:'var(--muted)'}}>No featured apps</div>}
-              {featured.map(app=>(
-                <div key={app.id} className="featured-card card-shadow round-card" style={{display:'flex', flexDirection:'column', justifyContent:'space-between', minWidth:360}}>
-                  <div style={{display:'flex', gap:14, alignItems:'center'}}>
-                    <img src={app.logo} alt="" style={{width:72,height:72,borderRadius:12,objectFit:'cover',background:'#0b1220'}} onError={(e)=>e.target.src='https://via.placeholder.com/72'} />
-                    <div style={{flex:1}}>
-                      <div style={{fontWeight:800,fontSize:18}}>{app.name}</div>
-                      <div style={{color:'var(--muted)',marginTop:6}}>{app.description}</div>
-                      <div style={{marginTop:8}}><span className="soft-pill" style={{fontSize:12}}>{app.type || 'Original'}</span></div>
-                    </div>
-                    <div style={{textAlign:'right'}}>
-                      <div style={{fontWeight:700,color:'#ffd166'}}>★ {app.rating || '—'}</div>
-                    </div>
-                  </div>
-
-                  <div style={{marginTop:14, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                    <div style={{color:'var(--muted)', fontSize:13}}>v{app.version || ''}</div>
-                    <div>
-                      <a className="btn-primary" href="#" onClick={(e)=>{ e.preventDefault(); openDownloadTab(app.id); }}>DOWNLOAD</a>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* Info pills */}
-          <div className="mt-6 grid grid-cols-3 gap-3">
-            <div className="round-card text-center card-shadow">
-              <div style={{fontWeight:700,fontSize:18}}>5+</div>
-              <div style={{color:'var(--muted)'}}>Total Apps</div>
-            </div>
-            <div className="round-card text-center card-shadow">
-              <div style={{fontWeight:700,fontSize:18}}>3+</div>
-              <div style={{color:'var(--muted)'}}>MOD Apps</div>
-            </div>
-            <div className="round-card text-center card-shadow">
-              <div style={{fontWeight:700,fontSize:18}}>10+</div>
-              <div style={{color:'var(--muted)'}}>Daily Updates</div>
-            </div>
+            <div className="pill">Featured</div>
           </div>
 
-          {/* All apps */}
-          <section className="mt-8">
-            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-              <div>
-                <h3 style={{fontSize:22,fontWeight:800}}>All Apps</h3>
-                <div style={{color:'var(--muted)'}}>Explore Everything</div>
-              </div>
-              <div style={{width:220}} />
-            </div>
-
-            <div className="mt-4 grid gap-4">
-              {loading && <div style={{color:'var(--muted)'}}>Loading...</div>}
-              {filtered.map(app=>(
-                <div key={app.id} className="p-4 round-card card-shadow" style={{display:'flex', alignItems:'center', gap:16}}>
-                  <img src={app.logo} style={{width:78,height:78,borderRadius:14,objectFit:'cover'}} onError={(e)=>e.target.src='https://via.placeholder.com/78'} />
+          <div className="mt-4 flex gap-4 overflow-x-auto no-scrollbar pb-4">
+            {featured.length===0 && <div className="text-gray-400">No featured apps</div>}
+            {featured.map(a=>(
+              <div key={a.id} className="featured-card card-shadow round-card" style={{display:'flex',flexDirection:'column',justifyContent:'space-between',minWidth:340,maxWidth:420}}>
+                <div style={{display:'flex',gap:16,alignItems:'center'}}>
+                  <img src={a.logo} alt="" style={{width:90,height:90,borderRadius:16,objectFit:'cover'}} onError={e=>e.target.src='https://via.placeholder.com/90'} />
                   <div style={{flex:1}}>
-                    <div style={{fontWeight:800, fontSize:16}}>{app.name} <span style={{marginLeft:8, padding:'4px 8px', background:'#ef476f', borderRadius:8, fontSize:12, color:'#fff'}}>{app.type}</span></div>
-                    <div style={{color:'var(--muted)', marginTop:6}}>{app.description}</div>
-                    <div style={{color:'var(--muted)', marginTop:6, fontSize:13}}>v{app.version || ''}</div>
+                    <div style={{fontWeight:800,fontSize:18}}>{a.name}</div>
+                    <div className="text-sm text-gray-400 mt-1">{a.description}</div>
+                    <div className="mt-2"><span className="pill text-sm">{a.type||'Original'}</span></div>
                   </div>
-
                   <div style={{textAlign:'right'}}>
-                    <div style={{marginBottom:10, fontWeight:700, color:'#ffd166'}}>{app.rating || '—'} ★</div>
-                    <a className="btn-primary" href="#" onClick={(e)=>{ e.preventDefault(); openDownloadTab(app.id); }}>Download</a>
+                    <div style={{fontWeight:800,color:'#ffd166'}}>{a.rating||'—'} ★</div>
+                    <div className="text-sm text-gray-400 mt-2">v{a.version||''}</div>
                   </div>
                 </div>
-              ))}
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:12}}>
+                  <div className="text-gray-400 text-sm">Updated: {a.updatedAt ? new Date(a.updatedAt.seconds*1000).toLocaleDateString() : '—'}</div>
+                  <div>
+                    <button onClick={()=>openPostInNewTab(a.id)} className="bg-gradient-to-b from-blue-400 to-blue-600 text-white px-4 py-2 rounded-lg font-bold">VIEW</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Quick stats */}
+        <div className="mt-6 grid grid-cols-3 gap-3">
+          <div className="round-card card-shadow text-center p-4">
+            <div className="text-xl font-bold">5+</div>
+            <div className="text-gray-400">Total Apps</div>
+          </div>
+          <div className="round-card card-shadow text-center p-4">
+            <div className="text-xl font-bold">3+</div>
+            <div className="text-gray-400">MOD Apps</div>
+          </div>
+          <div className="round-card card-shadow text-center p-4">
+            <div className="text-xl font-bold">10+</div>
+            <div className="text-gray-400">Daily Updates</div>
+          </div>
+        </div>
+
+        {/* Latest posts */}
+        <section className="mt-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-extrabold">Latest Posts</h3>
+              <div className="text-gray-400 text-sm">Newest uploads</div>
             </div>
-          </section>
-        </main>
-
-      </div>
-    );
-  }
-
-  /***********************
-   * Header: name changed to Real Apk, search in right
-   ***********************/
-  function Header({onSearch}){
-    const [q, setQ] = useState('');
-    useEffect(()=>{ onSearch(q); },[q]);
-    return (
-      <header style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:12}}>
-        <div style={{display:'flex', alignItems:'center', gap:12}}>
-          <div style={{width:44,height:44,borderRadius:40, background:'#6b21a8'}}></div>
-          <div style={{fontSize:20,fontWeight:900}}>Real Apk</div>
-        </div>
-
-        <div className="search-pill">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M21 21l-4.35-4.35" stroke="#9aa4b2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><circle cx="11" cy="11" r="6" stroke="#9aa4b2" strokeWidth="2" /></svg>
-          <input placeholder="Search apps..." value={q} onChange={(e)=>setQ(e.target.value)} style={{background:'transparent', border:'none', outline:'none', color:'white'}} />
-        </div>
-      </header>
-    );
-  }
-
-  /***********************
-   * Download flow: opens new tab with hash #dl:<id>
-   * This component runs when location.hash starts with #dl:
-   ***********************/
-  function DownloadPage({id}){
-    const [app, setApp] = useState(null);
-    const [seconds, setSeconds] = useState(3);
-
-    useEffect(()=>{
-      let mounted = true;
-      db.collection('apps').doc(id).get().then(doc=>{
-        if(!mounted) return;
-        if(doc.exists) setApp({id:doc.id, ...doc.data()});
-        else setApp(null);
-      }).catch(()=>setApp(null));
-
-      // countdown
-      const iv = setInterval(()=> setSeconds(s => {
-        if(s<=1){ clearInterval(iv); return 0; }
-        return s-1;
-      }), 1000);
-
-      // after 3s redirect to apkLink (if present)
-      const t = setTimeout(()=>{
-        db.collection('apps').doc(id).get().then(doc=>{
-          if(!doc.exists) { window.location.href = '/'; return; }
-          const data = doc.data();
-          if(data && data.apkLink){
-            // If it's an external link, go there
-            window.location.href = data.apkLink;
-          } else {
-            // no link -> back to home
-            window.location.href = '/';
-          }
-        }).catch(()=> window.location.href = '/');
-      }, 3000);
-
-      return ()=>{ mounted=false; clearTimeout(t); clearInterval(iv); };
-    },[id]);
-
-    return (
-      <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24, background: 'linear-gradient(180deg,#071029,#0b1220)'}}>
-        <div style={{maxWidth:520, width:'100%', textAlign:'center', background:'rgba(255,255,255,0.02)', padding:26, borderRadius:16}}>
-          <div style={{fontWeight:900, fontSize:22}}>Preparing your download...</div>
-          <div style={{color:'var(--muted)', marginTop:8}}>We will redirect you shortly</div>
-
-          <div style={{marginTop:18}}>
-            <div className="loader"></div>
+            <div className="text-sm text-gray-400">Showing {latest.length}</div>
           </div>
 
-          <div style={{marginTop:12, fontWeight:700}}>{ seconds > 0 ? `Redirecting in ${seconds}s` : 'Redirecting...' }</div>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            {latest.map(a=>(
+              <article key={a.id} className="p-4 round-card card-shadow flex gap-4 items-start">
+                <img src={a.logo} style={{width:84,height:84,borderRadius:14,objectFit:'cover'}} onError={e=>e.target.src='https://via.placeholder.com/84'} />
+                <div style={{flex:1}}>
+                  <div className="font-extrabold text-lg">{a.name}</div>
+                  <div className="text-gray-400 text-sm mt-1">{a.description}</div>
+                  <div className="mt-3 flex items-center justify-between">
+                    <div className="text-gray-400 text-sm">v{a.version||''}</div>
+                    <div className="flex gap-2">
+                      <button onClick={()=>openPostInNewTab(a.id)} className="px-3 py-1 rounded bg-gradient-to-b from-blue-400 to-blue-600 text-white font-bold">Details</button>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}
 
-          {app && <div style={{marginTop:18, display:'flex', alignItems:'center', gap:12, justifyContent:'center'}}>
-            <img src={app.logo} style={{width:56,height:56,borderRadius:10,objectFit:'cover'}} onError={(e)=>e.target.src='https://via.placeholder.com/56'} />
-            <div style={{textAlign:'left'}}>
-              <div style={{fontWeight:800}}>{app.name}</div>
-              <div style={{color:'var(--muted)'}}>Opening download link...</div>
-            </div>
-          </div>}
+/* Header */
+function Header({onSearch}){
+  const [q,setQ] = useState('');
+  useEffect(()=> onSearch(q),[q]);
+  return (
+    <header className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <div style={{width:44,height:44,borderRadius:40,background:'#8b5cf6'}}></div>
+        <div className="text-xl font-extrabold">Real Apk</div>
+      </div>
+      <div className="flex items-center gap-3">
+        <div className="search-pill" style={{background:'var(--card)',borderRadius:999,padding:'8px 12px',display:'flex',gap:8,alignItems:'center',minWidth:220}}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M21 21l-4.35-4.35" stroke="#9aa4b2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><circle cx="11" cy="11" r="6" stroke="#9aa4b2" strokeWidth="2" /></svg>
+          <input placeholder="Search apps..." onChange={(e)=>setQ(e.target.value)} style={{background:'transparent',border:'none',outline:'none',color:'white'}} />
         </div>
       </div>
-    );
-  }
+    </header>
+  );
+}
 
-  /***********************
-   * openDownloadTab helper
-   ***********************/
-  function openDownloadTab(id){
-    // Open a new tab with hash. The same app will run and show DownloadPage for that id.
+/* Detail Page */
+function DetailPage({id}){
+  const [app,setApp] = useState(null);
+  const [loading,setLoading] = useState(true);
+  const [countdown,setCountdown] = useState(3);
+  const mounted = useRef(true);
+
+  useEffect(()=>{
+    mounted.current = true;
+    db.collection('apps').doc(id).get().then(doc=>{
+      if(!mounted.current) return;
+      if(doc.exists) setApp({id:doc.id,...doc.data()});
+      setLoading(false);
+    }).catch(err=>{ console.error(err); setLoading(false); });
+
+    return ()=>{ mounted.current=false; };
+  },[id]);
+
+  function startDownload(){
+    // open loader page in same tab for better UX; we open a temporary internal view using hash #dl:
     const url = window.location.origin + window.location.pathname + '#dl:' + id;
-    window.open(url, '_blank');
+    // open new tab with loader and redirect
+    window.open(url,'_blank');
   }
 
-  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
-  </script>
+  return (
+    <div style={{minHeight:'100vh'}} className="hero-bg p-4">
+      <div className="max-w-3xl mx-auto">
+        <div className="p-6 round-card card-shadow text-center">
+          {!loading && app ? (
+            <>
+              <img src={app.logo} style={{width:120,height:120,borderRadius:18,objectFit:'cover',margin:'0 auto'}} onError={e=>e.target.src='https://via.placeholder.com/120'} />
+              <h1 className="text-2xl font-extrabold mt-4">{app.name}</h1>
+              <div className="text-gray-400 mt-2">{app.description}</div>
+              <div className="mt-4 flex items-center justify-center gap-4">
+                <div className="pill">v{app.version||''}</div>
+                <div className="pill">{app.type}</div>
+                <div className="pill">{app.rating} ★</div>
+              </div>
 
-  <!-- small usage note:
-    - To access admin panel (unchanged): append #adminsecret to url (e.g., index.html#adminsecret)
-    - Download opens new tab with #dl:<appId>, shows loader then redirects to apkLink
-  -->
+              {/* screenshots */}
+              <div className="mt-6 text-left">
+                <div className="text-lg font-bold mb-2">Screenshots</div>
+                <div className="screens-slider no-scrollbar">
+                  {(app.screenshots || []).length===0 ? <img src={app.logo} style={{width:220,height:360,borderRadius:12}}/> : (app.screenshots || []).map((s,i)=>(
+                    <img key={i} src={s} alt={`s${i}`} onError={e=>e.target.src='https://via.placeholder.com/220x360'} />
+                  ))}
+                </div>
+              </div>
+
+              {/* description */}
+              <div className="mt-6 text-left">
+                <div className="text-lg font-bold">Description</div>
+                <div className="text-gray-300 mt-2" dangerouslySetInnerHTML={{__html: app.fullDescription || app.description || ''}} />
+              </div>
+
+              <div className="mt-6 flex items-center justify-center gap-4">
+                <button onClick={startDownload} className="bg-gradient-to-b from-indigo-500 to-blue-600 px-6 py-3 rounded-2xl font-bold text-white">Download</button>
+                <a className="px-4 py-2 rounded-lg border border-gray-600 text-gray-300" href={app.playStoreLink||'#'} target="_blank" rel="noreferrer">Play Store</a>
+              </div>
+            </>
+          ) : loading ? <div className="py-20">Loading...</div> : <div className="py-20">App not found</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* Loader redirect page: hash #dl:<id> */
+function DownloadRedirector(){
+  const [info,setInfo] = useState(null);
+  const [s,setS] = useState(3);
+  useEffect(()=>{
+    const h = window.location.hash||'';
+    if(!h.startsWith('#dl:')) return;
+    const id = h.slice(4);
+    let mounted=true;
+    db.collection('apps').doc(id).get().then(doc=>{
+      if(!mounted) return;
+      if(doc.exists) setInfo({id:doc.id,...doc.data()});
+      // countdown
+      const iv = setInterval(()=> setS(x=>{ if(x<=1){ clearInterval(iv); return 0; } return x-1; }),1000);
+      setTimeout(()=>{
+        if(doc.exists){
+          const d = doc.data();
+          if(d && d.apkLink) window.location.href = d.apkLink;
+          else window.location.href = window.location.origin + window.location.pathname;
+        } else window.location.href = window.location.origin + window.location.pathname;
+      }, 3000);
+    }).catch(()=> window.location.href = window.location.origin + window.location.pathname);
+    return ()=> mounted=false;
+  },[]);
+  if(!window.location.hash.startsWith('#dl:')) return null;
+  return (
+    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:24,background:'linear-gradient(180deg,#071029,#0b1220)'}}>
+      <div className="round-card p-6 text-center card-shadow" style={{maxWidth:520}}>
+        <div className="loader-ring mx-auto"></div>
+        <div className="text-xl font-bold mt-4">Preparing your download...</div>
+        <div className="text-gray-400 mt-2">{ info ? info.name : 'Please wait' }</div>
+        <div className="mt-4 font-bold">{ s>0 ? `Redirecting in ${s}s` : 'Redirecting...' }</div>
+      </div>
+    </div>
+  );
+}
+
+/* Admin wrapper accessed only via #adminsecret and password prompt (no visible admin button) */
+function AdminWrapper(){
+  // show password modal before showing admin panel
+  const [authed,setAuthed] = useState(false);
+  const [loaded,setLoaded] = useState(false);
+  useEffect(()=>{ ensureAdminDoc(); },[]);
+  async function ensureAdminDoc(){
+    const ref = db.collection('meta').doc('admin');
+    const doc = await ref.get();
+    if(!doc.exists) await ref.set({ password: 'admin123' });
+    setLoaded(true);
+  }
+  async function checkPw(pw){
+    const doc = await db.collection('meta').doc('admin').get();
+    const pwdb = doc.exists ? doc.data().password : 'admin123';
+    if(pw===pwdb){ setAuthed(true); return true; }
+    alert('Incorrect password'); return false;
+  }
+  if(!loaded) return <div className="p-6 text-center">Checking...</div>;
+  if(!authed) return <AdminPassword onSubmit={checkPw} />;
+  return <AdminPanel />;
+}
+function AdminPassword({onSubmit}){
+  const [pw,setPw] = useState('');
+  return (
+    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div className="round-card p-6 card-shadow" style={{width:320}}>
+        <h3 className="text-xl font-bold">Admin Access</h3>
+        <p className="text-gray-400 text-sm">Enter admin password (from Firestore)</p>
+        <input className="w-full mt-3 p-2 rounded bg-gray-800" value={pw} onChange={e=>setPw(e.target.value)} placeholder="password" />
+        <div className="mt-4 flex justify-end gap-2">
+          <button onClick={()=>onSubmit(pw)} className="px-4 py-2 bg-blue-600 rounded text-white">Open</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* Admin Panel: CRUD with screenshots array field */
+function AdminPanel(){
+  const [items,setItems] = useState([]);
+  const [form,setForm] = useState({ name:'', logo:'', description:'', fullDescription:'', version:'', rating:'4.5', apkLink:'', playStoreLink:'', type:'MOD', isFeatured:false, screenshots:[] });
+  const [editing,setEditing] = useState(null);
+  const [query,setQuery] = useState('');
+  useEffect(()=> {
+    const unsub = db.collection('apps').orderBy('createdAt','desc').onSnapshot(snap=>{
+      const arr=[]; snap.forEach(d=>arr.push({id:d.id,...d.data()})); setItems(arr);
+    });
+    return ()=>unsub();
+  },[]);
+  function loadToForm(it){
+    setEditing(it.id); setForm({...it});
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+  function resetForm(){ setEditing(null); setForm({ name:'', logo:'', description:'', fullDescription:'', version:'', rating:'4.5', apkLink:'', playStoreLink:'', type:'MOD', isFeatured:false, screenshots:[] }); }
+  async function submit(){
+    if(!form.name) return alert('Name required');
+    const payload = {...form, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+    if(editing){
+      await db.collection('apps').doc(editing).update(payload);
+      resetForm();
+    } else {
+      await db.collection('apps').add({...payload, createdAt: firebase.firestore.FieldValue.serverTimestamp()});
+      resetForm();
+    }
+  }
+  async function remove(id){
+    if(!confirm('Delete this app?')) return;
+    await db.collection('apps').doc(id).delete();
+  }
+  async function changeAdminPassword(){
+    const newPw = prompt('Enter new admin password');
+    if(!newPw) return;
+    await db.collection('meta').doc('admin').set({ password: newPw });
+    alert('Password updated');
+  }
+  const shown = items.filter(it => { if(!query) return true; const s=query.toLowerCase(); return (it.name||'').toLowerCase().includes(s) || (it.description||'').toLowerCase().includes(s); });
+  return (
+    <div className="min-h-screen p-4 max-w-3xl mx-auto">
+      <div className="round-card p-4 card-shadow">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-bold">Admin Dashboard</h3>
+          <div className="flex gap-2">
+            <button onClick={changeAdminPassword} className="px-3 py-1 rounded bg-yellow-400 text-black">Change Admin Password</button>
+            <a className="px-3 py-1 rounded bg-gray-700" href="#" onClick={(e)=>{ e.preventDefault(); window.location.hash=''; window.location.reload(); }}>Exit Admin</a>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-2">
+          <input placeholder="App Name" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} className="w-full p-2 rounded bg-gray-800" />
+          <input placeholder="Logo URL" value={form.logo} onChange={e=>setForm({...form,logo:e.target.value})} className="w-full p-2 rounded bg-gray-800" />
+          <input placeholder="Category / Short Desc" value={form.description} onChange={e=>setForm({...form,description:e.target.value})} className="w-full p-2 rounded bg-gray-800" />
+          <textarea placeholder="Full HTML Description (optional)" value={form.fullDescription} onChange={e=>setForm({...form,fullDescription:e.target.value})} className="w-full p-2 rounded bg-gray-800" rows="4" />
+          <input placeholder="Version" value={form.version} onChange={e=>setForm({...form,version:e.target.value})} className="w-full p-2 rounded bg-gray-800" />
+          <input placeholder="Rating" value={form.rating} onChange={e=>setForm({...form,rating:e.target.value})} className="w-full p-2 rounded bg-gray-800" />
+          <input placeholder="APK Link (direct)" value={form.apkLink} onChange={e=>setForm({...form,apkLink:e.target.value})} className="w-full p-2 rounded bg-gray-800" />
+          <input placeholder="Play Store Link (optional)" value={form.playStoreLink} onChange={e=>setForm({...form,playStoreLink:e.target.value})} className="w-full p-2 rounded bg-gray-800" />
+          <input placeholder="Screenshot URL (comma separated)" value={(form.screenshots||[]).join(',')} onChange={e=>setForm({...form,screenshots: e.target.value.split(',').map(s=>s.trim()).filter(Boolean) })} className="w-full p-2 rounded bg-gray-800" />
+          <div className="flex gap-2">
+            <select value={form.type} onChange={e=>setForm({...form,type:e.target.value})} className="p-2 rounded bg-gray-800">
+              <option>MOD</option><option>Original</option>
+            </select>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={form.isFeatured} onChange={e=>setForm({...form,isFeatured:e.target.checked})} /> Featured</label>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={submit} className="px-4 py-2 bg-blue-600 rounded text-white">{editing ? 'Update App' : 'Post New App'}</button>
+            <button onClick={resetForm} className="px-4 py-2 rounded border">Reset</button>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <input placeholder="Search in admin..." value={query} onChange={e=>setQuery(e.target.value)} className="w-full p-2 rounded bg-gray-800" />
+          <div className="mt-4 grid gap-3">
+            {shown.map(it=>(
+              <div key={it.id} className="p-3 round-card card-shadow flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <img src={it.logo} style={{width:56,height:56,borderRadius:10}} onError={e=>e.target.src='https://via.placeholder.com/56'} />
+                  <div>
+                    <div className="font-bold">{it.name}</div>
+                    <div className="text-gray-400 text-sm">{it.description}</div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={()=>loadToForm(it)} className="px-3 py-1 bg-green-500 rounded">Edit</button>
+                  <button onClick={()=>remove(it.id)} className="px-3 py-1 bg-red-500 rounded">Delete</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* Mount root and conditional loader page */
+function Root(){
+  // if hash starts with #dl: render DownloadRedirector (full screen)
+  if(window.location.hash && window.location.hash.startsWith('#dl:')) return <DownloadRedirector />;
+  return <App />;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<Root />);
+
+</script>
 </body>
 </html>
