@@ -3,341 +3,303 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ApkLit - Single File React + Tailwind (Dark/Light)</title>
-  <!-- Tailwind Play CDN (fast for prototypes) -->
+  <title>Real Apk - Apps</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* small card shadow like reference */
-    .card-shadow{ box-shadow: 0 6px 18px rgba(3,7,18,0.35); }
+    /* Small custom tweaks to better match reference */
+    :root{
+      --bg:#0f1724;       /* deep navy */
+      --card:#172033;     /* card bg */
+      --muted:#9aa4b2;    /* muted text */
+      --accent:#6ea8ff;   /* accent blue */
+      --pill:#24303c;
+    }
+    body { background:var(--bg); color:#e6eef8; font-family:Inter, system-ui, Arial; }
+    .card-shadow{ box-shadow: 0 10px 25px rgba(2,6,23,0.6); }
+    /* big rounded cards */
+    .round-card { border-radius: 20px; background: var(--card); padding:16px; }
+    /* featured large card */
+    .featured-card { min-width:320px; max-width:420px; border-radius:18px; padding:18px; }
+    .soft-pill { background:var(--pill); padding:6px 10px; border-radius:999px; color:var(--muted); font-weight:600; }
+    .btn-primary { background:linear-gradient(180deg,#6ea8ff,#3b82f6); color:white; padding:8px 14px; border-radius:10px; font-weight:700; display:inline-block; }
+    /* search pill in header */
+    .search-pill{ background:var(--card); border-radius:999px; padding:10px 14px; display:flex; gap:8px; align-items:center; min-width:220px; }
+    /* loader */
+    .loader { width:72px; height:72px; border-radius:50%; border:8px solid rgba(255,255,255,0.08); border-top-color: #6ea8ff; animation:spin 1s linear infinite; margin: 18px auto; }
+    @keyframes spin{ to { transform: rotate(360deg);} }
+    /* responsive tweaks */
+    @media (max-width:640px){
+      .featured-card{ min-width:280px; }
+    }
   </style>
 </head>
-<body class="bg-slate-900 text-slate-100">
+<body>
+  <div id="root"></div>
 
-<div id="root"></div>
+  <!-- React + Babel for single-file -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/babel-standalone@6.26.0/babel.min.js"></script>
 
-<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-<script src="https://unpkg.com/babel-standalone@6.26.0/babel.min.js"></script>
+  <!-- Firebase compat -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
 
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+  <script type="text/babel">
+  const { useState, useEffect, useRef } = React;
 
-<script type="text/babel">
-const { useState, useEffect, useRef } = React;
+  /***********************
+   * FIREBASE CONFIG - inserted
+   ***********************/
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyDAoDGn6lymDsAia_SNue37MiyfD80pFKU",
+    authDomain: "website-builder-e975c.firebaseapp.com",
+    projectId: "website-builder-e975c",
+    storageBucket: "website-builder-e975c.firebasestorage.app",
+    messagingSenderId: "200054863866",
+    appId: "1:200054863866:web:fe88010678557c7f9f9643",
+    measurementId: "G-84KLJLYTPZ"
+  };
 
-/*********************
- *  CONFIG - INSERTED
- *********************/
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyDAoDGn6lymDsAia_SNue37MiyfD80pFKU",
-  authDomain: "website-builder-e975c.firebaseapp.com",
-  projectId: "website-builder-e975c",
-  storageBucket: "website-builder-e975c.firebasestorage.app",
-  messagingSenderId: "200054863866",
-  appId: "1:200054863866:web:fe88010678557c7f9f9643",
-  measurementId: "G-84KLJLYTPZ"
-};
+  firebase.initializeApp(FIREBASE_CONFIG);
+  const db = firebase.firestore();
 
-// Default admin password (only used to create initial record if missing)
-const DEFAULT_ADMIN_PASSWORD = 'admin123';
-
-/*********************
- *  Firebase init
- *********************/
-firebase.initializeApp(FIREBASE_CONFIG);
-const db = firebase.firestore();
-
-/*********************
- * Helpers
- *********************/
-function saveTheme(theme){ localStorage.setItem('apk_theme', theme); document.documentElement.classList.toggle('light', theme==='light'); }
-function loadTheme(){ return localStorage.getItem('apk_theme') || 'dark'; }
-
-/*********************
- * App Component
- *********************/
-function App(){
-  const [theme, setTheme] = useState(loadTheme());
-  const [apps, setApps] = useState([]);
-  const [featured, setFeatured] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [showPassPrompt, setShowPassPrompt] = useState(false);
-  const [adminPasswordLoaded, setAdminPasswordLoaded] = useState(false);
-  const adminPassRef = useRef('');
-  const [searchTerm, setSearchTerm] = useState('');
-
-  useEffect(()=>{ // theme apply
-    saveTheme(theme);
-    if(theme==='light'){
-      document.body.classList.remove('bg-slate-900');
-      document.body.classList.add('bg-slate-50');
-      document.body.classList.remove('text-slate-100');
-      document.body.classList.add('text-slate-900');
-    } else {
-      document.body.classList.add('bg-slate-900');
-      document.body.classList.remove('bg-slate-50');
-      document.body.classList.add('text-slate-100');
-      document.body.classList.remove('text-slate-900');
-    }
-  },[theme]);
-
-  useEffect(()=>{
-    const unsub = db.collection('apps').orderBy('createdAt','desc')
-      .onSnapshot(snap=>{
-        const list = [];
-        snap.forEach(doc=> list.push({ id: doc.id, ...doc.data() }));
-        setApps(list);
-        setFeatured(list.filter(a=>a.isFeatured));
-        setLoading(false);
-      }, err=>{ console.error(err); setLoading(false); });
-
-    if(window.location.hash === '#adminsecret'){
-      setShowPassPrompt(true);
-      ensureAdminPasswordExists();
-    }
-
-    return ()=>unsub();
-  },[]);
-
-  async function ensureAdminPasswordExists(){
-    const docRef = db.collection('meta').doc('admin');
-    const doc = await docRef.get();
-    if(!doc.exists){
-      await docRef.set({ password: DEFAULT_ADMIN_PASSWORD });
-    }
-    setAdminPasswordLoaded(true);
+  /***********************
+   * Helper: detect download hash
+   ***********************/
+  function getDownloadHash(){
+    const h = window.location.hash || '';
+    if(h.startsWith('#dl:')) return h.slice(4);
+    return null;
   }
 
-  async function checkAdminPassword(input){
-    const doc = await db.collection('meta').doc('admin').get();
-    const pw = doc.exists ? doc.data().password : DEFAULT_ADMIN_PASSWORD;
-    if(input === pw){ setIsAdmin(true); setShowPassPrompt(false); adminPassRef.current = input; return true; }
-    alert('Incorrect password');
-    return false;
-  }
+  /***********************
+   * App component
+   ***********************/
+  function App(){
+    const [apps, setApps] = useState([]);
+    const [featured, setFeatured] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState('');
+    const dlId = getDownloadHash();
 
-  const filtered = apps.filter(a=>{
-    if(!searchTerm) return true;
-    const s = searchTerm.toLowerCase();
-    return (a.name||'').toLowerCase().includes(s) || (a.description||'').toLowerCase().includes(s);
-  });
+    useEffect(()=>{
+      // subscribe to apps
+      const unsub = db.collection('apps').orderBy('createdAt','desc')
+        .onSnapshot(snap=>{
+          const arr=[];
+          snap.forEach(d=>arr.push({id:d.id, ...d.data()}));
+          setApps(arr);
+          setFeatured(arr.filter(a=>a.isFeatured).slice(0,10));
+          setLoading(false);
+        }, err=>{ console.error(err); setLoading(false); });
+      return ()=>unsub();
+    },[]);
 
-  return (
-    <div className="min-h-screen p-4 max-w-3xl mx-auto">
-      <Header theme={theme} setTheme={setTheme} onAdminClick={()=>{ window.location.hash = '#adminsecret'; setShowPassPrompt(true); ensureAdminPasswordExists(); }} />
+    // if hash contains download id, show Download page
+    if(dlId){
+      return <DownloadPage id={dlId} />;
+    }
 
-      <main className="mt-6">
-        <section>
-          <h2 className="text-2xl font-bold flex items-center gap-2">🔥 Featured Apps</h2>
-          <p className="text-slate-400">Premium Selections</p>
-          <div className="mt-4 flex gap-4 overflow-x-auto pb-4">
-            {featured.length===0 && <div className="text-slate-400">No featured apps yet.</div>}
-            {featured.map(app=> (
-              <div key={app.id} className="min-w-[260px] p-4 rounded-2xl bg-slate-800 card-shadow">
-                <div className="flex gap-3 items-center">
-                  <img src={app.logo} alt="logo" className="w-14 h-14 rounded-lg object-cover" onError={(e)=>e.target.src='https://via.placeholder.com/64'} />
-                  <div>
-                    <div className="font-semibold">{app.name}</div>
-                    <div className="text-sm text-slate-400">{app.description}</div>
-                    <div className="mt-2"><span className="px-3 py-1 bg-slate-700 rounded-full text-sm">{app.type||'Original'}</span></div>
+    const filtered = apps.filter(a=>{
+      if(!search) return true;
+      const s=search.toLowerCase();
+      return (a.name||'').toLowerCase().includes(s) || (a.description||'').toLowerCase().includes(s);
+    });
+
+    return (
+      <div className="min-h-screen max-w-3xl mx-auto p-4">
+        <Header onSearch={setSearch} />
+
+        <main className="mt-6">
+          {/* Featured */}
+          <section>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 style={{fontSize:26,fontWeight:800}}>🔥 Featured Apps</h2>
+                <div style={{color:'var(--muted)'}}>Premium Selections</div>
+              </div>
+              <div className="soft-pill">Featured</div>
+            </div>
+
+            <div className="mt-4 flex gap-4 overflow-x-auto pb-4">
+              {featured.length === 0 && <div style={{color:'var(--muted)'}}>No featured apps</div>}
+              {featured.map(app=>(
+                <div key={app.id} className="featured-card card-shadow round-card" style={{display:'flex', flexDirection:'column', justifyContent:'space-between', minWidth:360}}>
+                  <div style={{display:'flex', gap:14, alignItems:'center'}}>
+                    <img src={app.logo} alt="" style={{width:72,height:72,borderRadius:12,objectFit:'cover',background:'#0b1220'}} onError={(e)=>e.target.src='https://via.placeholder.com/72'} />
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:800,fontSize:18}}>{app.name}</div>
+                      <div style={{color:'var(--muted)',marginTop:6}}>{app.description}</div>
+                      <div style={{marginTop:8}}><span className="soft-pill" style={{fontSize:12}}>{app.type || 'Original'}</span></div>
+                    </div>
+                    <div style={{textAlign:'right'}}>
+                      <div style={{fontWeight:700,color:'#ffd166'}}>★ {app.rating || '—'}</div>
+                    </div>
+                  </div>
+
+                  <div style={{marginTop:14, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                    <div style={{color:'var(--muted)', fontSize:13}}>v{app.version || ''}</div>
+                    <div>
+                      <a className="btn-primary" href="#" onClick={(e)=>{ e.preventDefault(); openDownloadTab(app.id); }}>DOWNLOAD</a>
+                    </div>
                   </div>
                 </div>
-                <div className="mt-4 flex items-center justify-between">
-                  <a href={app.apkLink} className="px-4 py-2 rounded-lg bg-sky-500 text-white">DOWNLOAD</a>
-                  <div className="flex items-center gap-2"><span className="text-yellow-400">★</span>{app.rating||'—'}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="mt-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-xl font-bold">All Apps</h3>
-              <p className="text-slate-400">Explore Everything</p>
+              ))}
             </div>
-            <div className="w-48">
-              <input value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder="Search apps..." className="w-full px-3 py-2 rounded-md bg-slate-800 text-slate-100" />
+          </section>
+
+          {/* Info pills */}
+          <div className="mt-6 grid grid-cols-3 gap-3">
+            <div className="round-card text-center card-shadow">
+              <div style={{fontWeight:700,fontSize:18}}>5+</div>
+              <div style={{color:'var(--muted)'}}>Total Apps</div>
+            </div>
+            <div className="round-card text-center card-shadow">
+              <div style={{fontWeight:700,fontSize:18}}>3+</div>
+              <div style={{color:'var(--muted)'}}>MOD Apps</div>
+            </div>
+            <div className="round-card text-center card-shadow">
+              <div style={{fontWeight:700,fontSize:18}}>10+</div>
+              <div style={{color:'var(--muted)'}}>Daily Updates</div>
             </div>
           </div>
 
-          <div className="mt-4 grid gap-4">
-            {loading && <div className="text-slate-400">Loading...</div>}
-            {filtered.map(app=> (
-              <div key={app.id} className="p-4 rounded-2xl bg-slate-800 flex items-center gap-4 card-shadow">
-                <img src={app.logo} className="w-14 h-14 rounded-lg object-cover" onError={(e)=>e.target.src='https://via.placeholder.com/64'} />
-                <div className="flex-1">
-                  <div className="font-semibold text-lg">{app.name} <span className="ml-2 text-xs px-2 py-1 rounded bg-rose-500 text-white">{app.type}</span></div>
-                  <div className="text-slate-400">{app.description}</div>
-                  <div className="text-slate-400 text-sm">v{app.version||''}</div>
-                </div>
-                <div className="text-right">
-                  <div className="mb-2">{app.rating || '—'} ★</div>
-                  <a href={app.apkLink} className="px-3 py-2 rounded-md bg-sky-500 text-white">Download</a>
-                </div>
+          {/* All apps */}
+          <section className="mt-8">
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+              <div>
+                <h3 style={{fontSize:22,fontWeight:800}}>All Apps</h3>
+                <div style={{color:'var(--muted)'}}>Explore Everything</div>
               </div>
-            ))}
-          </div>
-        </section>
+              <div style={{width:220}} />
+            </div>
 
-        {isAdmin && <AdminPanel db={db} adminPassRef={adminPassRef} />}
+            <div className="mt-4 grid gap-4">
+              {loading && <div style={{color:'var(--muted)'}}>Loading...</div>}
+              {filtered.map(app=>(
+                <div key={app.id} className="p-4 round-card card-shadow" style={{display:'flex', alignItems:'center', gap:16}}>
+                  <img src={app.logo} style={{width:78,height:78,borderRadius:14,objectFit:'cover'}} onError={(e)=>e.target.src='https://via.placeholder.com/78'} />
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:800, fontSize:16}}>{app.name} <span style={{marginLeft:8, padding:'4px 8px', background:'#ef476f', borderRadius:8, fontSize:12, color:'#fff'}}>{app.type}</span></div>
+                    <div style={{color:'var(--muted)', marginTop:6}}>{app.description}</div>
+                    <div style={{color:'var(--muted)', marginTop:6, fontSize:13}}>v{app.version || ''}</div>
+                  </div>
 
-      </main>
+                  <div style={{textAlign:'right'}}>
+                    <div style={{marginBottom:10, fontWeight:700, color:'#ffd166'}}>{app.rating || '—'} ★</div>
+                    <a className="btn-primary" href="#" onClick={(e)=>{ e.preventDefault(); openDownloadTab(app.id); }}>Download</a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </main>
 
-      {showPassPrompt && <PasswordModal onClose={()=>setShowPassPrompt(false)} onSubmit={checkAdminPassword} loaded={adminPasswordLoaded} />}
-    </div>
-  );
-}
-
-function Header({theme,setTheme,onAdminClick}){
-  return (
-    <header className="flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-purple-600"></div>
-        <div className="text-xl font-bold">ApkLit</div>
       </div>
-      <div className="flex items-center gap-3">
-        <div className="hidden md:block w-64">
-          <input placeholder="Search Apps" className="w-full px-3 py-2 rounded-full bg-slate-800 text-slate-300" />
-        </div>
-        <button className="px-3 py-2 rounded-md" onClick={()=>setTheme(theme==='dark'?'light':'dark')}>{theme==='dark'?'☀️':'🌙'}</button>
-        <button title="Admin (secret)" onClick={onAdminClick} className="px-3 py-2">⬇️</button>
-      </div>
-    </header>
-  );
-}
-
-function PasswordModal({onClose,onSubmit,loaded}){
-  const [pw, setPw] = useState('');
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
-      <div className="bg-slate-800 p-6 rounded-lg w-80">
-        <h4 className="text-lg font-semibold">Admin Access</h4>
-        <p className="text-slate-400 text-sm">Enter admin password (fetched from Firestore)</p>
-        <input className="mt-3 w-full px-3 py-2 rounded bg-slate-700" value={pw} onChange={e=>setPw(e.target.value)} />
-        <div className="mt-4 flex justify-end gap-2">
-          <button onClick={onClose} className="px-3 py-1 rounded">Cancel</button>
-          <button onClick={async()=>{ if(!loaded){ alert('waiting...'); return;} await onSubmit(pw); }} className="px-3 py-1 rounded bg-sky-500 text-white">Open</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AdminPanel({db, adminPassRef}){
-  const [items, setItems] = useState([]);
-  const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ name:'', logo:'', description:'', rating:'4.5', apkLink:'', playStoreLink:'', type:'MOD', isFeatured:false, version:'' });
-  const [query, setQuery] = useState('');
-
-  useEffect(()=>{
-    const unsub = db.collection('apps').orderBy('createdAt','desc').onSnapshot(snap=>{
-      const arr = [];
-      snap.forEach(d=>arr.push({id:d.id, ...d.data()}));
-      setItems(arr);
-    });
-    return ()=>unsub();
-  },[]);
-
-  function startEdit(item){ setEditing(item.id); setForm({...item}); window.scrollTo({top:0,behavior:'smooth'}); }
-  function resetForm(){ setEditing(null); setForm({ name:'', logo:'', description:'', rating:'4.5', apkLink:'', playStoreLink:'', type:'MOD', isFeatured:false, version:'' }); }
-
-  async function submit(){
-    if(!form.name) return alert('Name required');
-    if(editing){
-      await db.collection('apps').doc(editing).update({...form, updatedAt: firebase.firestore.FieldValue.serverTimestamp()});
-      resetForm();
-    } else {
-      await db.collection('apps').add({...form, createdAt: firebase.firestore.FieldValue.serverTimestamp()});
-      resetForm();
-    }
+    );
   }
 
-  async function remove(id){ if(!confirm('Delete this app?')) return; await db.collection('apps').doc(id).delete(); }
+  /***********************
+   * Header: name changed to Real Apk, search in right
+   ***********************/
+  function Header({onSearch}){
+    const [q, setQ] = useState('');
+    useEffect(()=>{ onSearch(q); },[q]);
+    return (
+      <header style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:12}}>
+        <div style={{display:'flex', alignItems:'center', gap:12}}>
+          <div style={{width:44,height:44,borderRadius:40, background:'#6b21a8'}}></div>
+          <div style={{fontSize:20,fontWeight:900}}>Real Apk</div>
+        </div>
 
-  async function changeAdminPassword(){
-    const newPw = prompt('Enter new admin password');
-    if(!newPw) return;
-    await db.collection('meta').doc('admin').set({ password: newPw });
-    adminPassRef.current = newPw;
-    alert('Password updated');
+        <div className="search-pill">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M21 21l-4.35-4.35" stroke="#9aa4b2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><circle cx="11" cy="11" r="6" stroke="#9aa4b2" strokeWidth="2" /></svg>
+          <input placeholder="Search apps..." value={q} onChange={(e)=>setQ(e.target.value)} style={{background:'transparent', border:'none', outline:'none', color:'white'}} />
+        </div>
+      </header>
+    );
   }
 
-  const shown = items.filter(it=>{
-    if(!query) return true;
-    const s=query.toLowerCase(); return (it.name||'').toLowerCase().includes(s) || (it.description||'').toLowerCase().includes(s);
-  });
+  /***********************
+   * Download flow: opens new tab with hash #dl:<id>
+   * This component runs when location.hash starts with #dl:
+   ***********************/
+  function DownloadPage({id}){
+    const [app, setApp] = useState(null);
+    const [seconds, setSeconds] = useState(3);
 
-  return (
-    <section className="mt-8 p-4 rounded-2xl bg-slate-800 card-shadow">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-bold">Admin Dashboard</h3>
-        <div className="flex gap-2">
-          <button onClick={changeAdminPassword} className="px-3 py-1 rounded bg-amber-500 text-black">Change Admin Password</button>
-        </div>
-      </div>
+    useEffect(()=>{
+      let mounted = true;
+      db.collection('apps').doc(id).get().then(doc=>{
+        if(!mounted) return;
+        if(doc.exists) setApp({id:doc.id, ...doc.data()});
+        else setApp(null);
+      }).catch(()=>setApp(null));
 
-      <div className="mt-4 grid gap-2">
-        <input placeholder="App Name" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} className="w-full px-3 py-2 rounded bg-slate-700" />
-        <input placeholder="Logo URL" value={form.logo} onChange={e=>setForm({...form,logo:e.target.value})} className="w-full px-3 py-2 rounded bg-slate-700" />
-        <input placeholder="Category / Description" value={form.description} onChange={e=>setForm({...form,description:e.target.value})} className="w-full px-3 py-2 rounded bg-slate-700" />
-        <input placeholder="Version" value={form.version} onChange={e=>setForm({...form,version:e.target.value})} className="w-full px-3 py-2 rounded bg-slate-700" />
-        <input placeholder="Rating" value={form.rating} onChange={e=>setForm({...form,rating:e.target.value})} className="w-full px-3 py-2 rounded bg-slate-700" />
-        <input placeholder="APK Link" value={form.apkLink} onChange={e=>setForm({...form,apkLink:e.target.value})} className="w-full px-3 py-2 rounded bg-slate-700" />
-        <input placeholder="Play Store Link (optional)" value={form.playStoreLink} onChange={e=>setForm({...form,playStoreLink:e.target.value})} className="w-full px-3 py-2 rounded bg-slate-700" />
-        <div className="flex gap-2">
-          <select value={form.type} onChange={e=>setForm({...form,type:e.target.value})} className="px-3 py-2 rounded bg-slate-700">
-            <option>MOD</option>
-            <option>Original</option>
-          </select>
-          <label className="flex items-center gap-2"><input type="checkbox" checked={form.isFeatured} onChange={e=>setForm({...form,isFeatured:e.target.checked})} /> Featured</label>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={submit} className="px-3 py-2 rounded bg-sky-500 text-white">{editing ? 'Update App' : 'Post New App'}</button>
-          <button onClick={resetForm} className="px-3 py-2 rounded border">Reset</button>
-        </div>
-      </div>
+      // countdown
+      const iv = setInterval(()=> setSeconds(s => {
+        if(s<=1){ clearInterval(iv); return 0; }
+        return s-1;
+      }), 1000);
 
-      <div className="mt-6">
-        <input placeholder="Search in admin" value={query} onChange={e=>setQuery(e.target.value)} className="w-full px-3 py-2 rounded bg-slate-700" />
-        <div className="mt-4 grid gap-2">
-          {shown.map(it=> (
-            <div key={it.id} className="p-3 rounded bg-slate-900 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <img src={it.logo} className="w-12 h-12 rounded object-cover" onError={(e)=>e.target.src='https://via.placeholder.com/48'} />
-                <div>
-                  <div className="font-semibold">{it.name}</div>
-                  <div className="text-slate-400 text-sm">{it.description}</div>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={()=>startEdit(it)} className="px-3 py-1 rounded bg-emerald-500">Edit</button>
-                <button onClick={()=>remove(it.id)} className="px-3 py-1 rounded bg-red-500">Delete</button>
-              </div>
+      // after 3s redirect to apkLink (if present)
+      const t = setTimeout(()=>{
+        db.collection('apps').doc(id).get().then(doc=>{
+          if(!doc.exists) { window.location.href = '/'; return; }
+          const data = doc.data();
+          if(data && data.apkLink){
+            // If it's an external link, go there
+            window.location.href = data.apkLink;
+          } else {
+            // no link -> back to home
+            window.location.href = '/';
+          }
+        }).catch(()=> window.location.href = '/');
+      }, 3000);
+
+      return ()=>{ mounted=false; clearTimeout(t); clearInterval(iv); };
+    },[id]);
+
+    return (
+      <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24, background: 'linear-gradient(180deg,#071029,#0b1220)'}}>
+        <div style={{maxWidth:520, width:'100%', textAlign:'center', background:'rgba(255,255,255,0.02)', padding:26, borderRadius:16}}>
+          <div style={{fontWeight:900, fontSize:22}}>Preparing your download...</div>
+          <div style={{color:'var(--muted)', marginTop:8}}>We will redirect you shortly</div>
+
+          <div style={{marginTop:18}}>
+            <div className="loader"></div>
+          </div>
+
+          <div style={{marginTop:12, fontWeight:700}}>{ seconds > 0 ? `Redirecting in ${seconds}s` : 'Redirecting...' }</div>
+
+          {app && <div style={{marginTop:18, display:'flex', alignItems:'center', gap:12, justifyContent:'center'}}>
+            <img src={app.logo} style={{width:56,height:56,borderRadius:10,objectFit:'cover'}} onError={(e)=>e.target.src='https://via.placeholder.com/56'} />
+            <div style={{textAlign:'left'}}>
+              <div style={{fontWeight:800}}>{app.name}</div>
+              <div style={{color:'var(--muted)'}}>Opening download link...</div>
             </div>
-          ))}
+          </div>}
         </div>
       </div>
-    </section>
-  );
-}
+    );
+  }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
-</script>
+  /***********************
+   * openDownloadTab helper
+   ***********************/
+  function openDownloadTab(id){
+    // Open a new tab with hash. The same app will run and show DownloadPage for that id.
+    const url = window.location.origin + window.location.pathname + '#dl:' + id;
+    window.open(url, '_blank');
+  }
 
-<!--
-  HOSTING / USAGE INSTRUCTIONS
-  1) Create a Firebase project at https://console.firebase.google.com/
-  2) Create Firestore database in test mode (or locked, but ensure rules allow reads/writes you need while testing).
-  3) In Project Settings -> Your apps, copy the web config and paste into FIREBASE_CONFIG at top of this file.
-  4) Save this file as index.html and commit to GitHub.
-  5) To host: Enable GitHub Pages on the repo, set branch to main and root folder. The single file will be served.
-  6) Open the hosted URL. To access Admin Panel: append #adminsecret to the URL (example: https://youruser.github.io/yourrepo/#adminsecret). A password prompt will appear. The password is fetched from Firestore (collection 'meta', doc 'admin'). If it does not exist, the app will create it with default 'admin123'.
-  7) From Admin Dashboard you can post/edit/delete apps. App documents are stored in collection 'apps' with fields: name, logo, description, rating, apkLink, playStoreLink, type, isFeatured, version, createdAt.
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
 
-  SECURITY NOTE: This example stores and checks admin password client-side using Firestore. For production please add Firebase Authentication + server-side rules to secure admin endpoints.
--->
+  <!-- small usage note:
+    - To access admin panel (unchanged): append #adminsecret to url (e.g., index.html#adminsecret)
+    - Download opens new tab with #dl:<appId>, shows loader then redirects to apkLink
+  -->
 </body>
 </html>
