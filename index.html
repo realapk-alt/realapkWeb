@@ -3,464 +3,277 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Real Apk — App Store</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Real Apk — Apps</title>
+  <script>/* Minimal inline tailwind fallback: we'll use simple CSS so page works even when CDNs blocked */</script>
   <style>
-    :root{
-      --bg:#0f1724; --card:#152033; --muted:#9aa4b2; --accent:#6ea8ff; --pill:#24303c;
-    }
+    :root{--bg:#0f1724;--card:#151d2a;--muted:#9aa4b2;--accent:#4f8df7}
     html,body,#root{height:100%}
-    body{background:var(--bg); color:#e6eef8; font-family:Inter, system-ui, Arial;}
-    .card-shadow{ box-shadow: 0 10px 25px rgba(2,6,23,0.6); }
-    .rounded-2xl-strong{ border-radius:22px; }
-    /* featured look */
-    .featured-card { min-width:320px; max-width:420px; border-radius:20px; padding:18px; background:linear-gradient(180deg,#111827,#0f1724); }
-    .loader-ring{ width:72px;height:72px;border-radius:999px;border:8px solid rgba(255,255,255,0.06); border-top-color:var(--accent); animation:spin 1s linear infinite;}
-    @keyframes spin{ to { transform: rotate(360deg); } }
-    /* screenshots slider */
-    .screens-slider { display:flex; gap:12px; overflow-x:auto; padding-bottom:8px; }
-    .screens-slider img{min-width:200px; max-width:320px; border-radius:12px; object-fit:cover;}
-    /* small utilities */
-    .pill { background:var(--pill); padding:6px 10px; border-radius:999px; color:var(--muted); font-weight:600; }
-    /* hide scrollbar (small) */
-    .no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar{ -ms-overflow-style: none; scrollbar-width: none; }
-    /* detail hero */
-    .hero-bg{ background: radial-gradient(circle at 20% 20%, rgba(110,168,255,0.06), transparent 10%), linear-gradient(180deg,#071029,#0b1220); }
-    /* small responsive */
-    @media (max-width:640px){ .featured-card{ min-width:300px } }
+    body{margin:0;font-family:Inter,system-ui,Arial;background:var(--bg);color:#eaf3ff}
+    .container{max-width:980px;margin:0 auto;padding:16px}
+    header{display:flex;align-items:center;justify-content:space-between}
+    .logo{display:flex;align-items:center;gap:12px}
+    .logo .dot{width:44px;height:44px;border-radius:999px;background:#7c3aed}
+    .search{background:var(--card);padding:8px 12px;border-radius:999px;display:flex;gap:8px;align-items:center;min-width:200px}
+    .featured-row{display:flex;gap:14px;overflow-x:auto;padding-bottom:8px;margin-top:12px}
+    .card{background:var(--card);border-radius:16px;padding:14px;min-width:320px;box-shadow:0 10px 25px rgba(0,0,0,0.6)}
+    .small-card{display:flex;gap:12px;align-items:center}
+    .pill{background:#24303c;padding:6px 10px;border-radius:999px;color:var(--muted);font-weight:600}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:12px}
+    img.logo-img{width:84px;height:84px;border-radius:12px;object-fit:cover}
+    button.primary{background:linear-gradient(180deg,var(--accent),#2166d6);color:white;padding:8px 12px;border-radius:10px;border:none;font-weight:700}
+    .detail-hero{padding:28px;border-radius:16px;background:linear-gradient(180deg,#071029,#0b1220);box-shadow:0 10px 35px rgba(0,0,0,0.6)}
+    .screens{display:flex;gap:12px;overflow-x:auto;padding:8px 0;margin-top:12px}
+    .screens img{min-width:180px;height:320px;border-radius:12px;object-fit:cover}
+    .loader-ring{width:72px;height:72px;border-radius:999px;border:8px solid rgba(255,255,255,0.06);border-top-color:var(--accent);animation:spin 1s linear infinite;margin:18px auto}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .admin-form input,.admin-form textarea{width:100%;padding:8px;margin-top:8px;border-radius:8px;background:#0f1a28;color:#eaf3ff;border:1px solid rgba(255,255,255,0.03)}
+    .admin-actions{display:flex;gap:8px;margin-top:8px}
+    a { color: inherit; text-decoration:none; }
+    .muted{color:var(--muted)}
+    /* small scrollbar hide */
+    .featured-row::-webkit-scrollbar, .screens::-webkit-scrollbar { display:none }
+    @media(max-width:520px){ .card{min-width:280px} .screens img{min-width:150px;height:260px} }
   </style>
 </head>
 <body>
-<div id="root"></div>
+  <div id="root" class="container"></div>
 
-<!-- React + Babel -->
-<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-<script src="https://unpkg.com/babel-standalone@6.26.0/babel.min.js"></script>
+  <!-- Firebase (compat for simplicity) -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
 
-<!-- Firebase compat -->
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+  <script>
+  /***** CONFIG: replace if you want; currently uses your provided config *****/
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyDAoDGn6lymDsAia_SNue37MiyfD80pFKU",
+    authDomain: "website-builder-e975c.firebaseapp.com",
+    projectId: "website-builder-e975c",
+    storageBucket: "website-builder-e975c.firebasestorage.app",
+    messagingSenderId: "200054863866",
+    appId: "1:200054863866:web:fe88010678557c7f9f9643",
+    measurementId: "G-84KLJLYTPZ"
+  };
+  firebase.initializeApp(FIREBASE_CONFIG);
+  const db = firebase.firestore();
 
-<script type="text/babel">
-const {useState,useEffect,useRef} = React;
+  /***** Simple hash routing helpers *****/
+  function getHash(){ const h=location.hash||''; if(h.startsWith('#post:')) return {m:'post',id:h.slice(6)}; if(h.startsWith('#dl:')) return {m:'dl',id:h.slice(4)}; if(h==='#adminsecret') return {m:'admin'}; return {m:'home'}; }
+  function openPostNewTab(id){ window.open(location.origin + location.pathname + '#post:' + id, '_blank'); }
+  function openDownloadLoader(id){ window.open(location.origin + location.pathname + '#dl:' + id, '_blank'); }
 
-/* ---------------------
-   FIREBASE CONFIG - INSERT YOUR CONFIG (already set)
-   --------------------- */
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyDAoDGn6lymDsAia_SNue37MiyfD80pFKU",
-  authDomain: "website-builder-e975c.firebaseapp.com",
-  projectId: "website-builder-e975c",
-  storageBucket: "website-builder-e975c.firebasestorage.app",
-  messagingSenderId: "200054863866",
-  appId: "1:200054863866:web:fe88010678557c7f9f9643",
-  measurementId: "G-84KLJLYTPZ"
-};
+  /***** Render helpers (vanilla JS) *****/
+  const root = document.getElementById('root');
 
-firebase.initializeApp(FIREBASE_CONFIG);
-const db = firebase.firestore();
+  function el(tag,attrs,children){ const e=document.createElement(tag); if(attrs) Object.entries(attrs).forEach(([k,v])=>{ if(k==='html') e.innerHTML=v; else if(k==='on') e.addEventListener(v.ev,v.fn); else e.setAttribute(k,v); }); if(children) children.forEach(c=> e.appendChild(typeof c==='string'?document.createTextNode(c):c)); return e; }
 
-/* helpers for hash routing */
-function getHash(){
-  const h = window.location.hash||'';
-  if(h.startsWith('#post:')) return {route:'post', id:h.slice(6)};
-  if(h === '#adminsecret') return {route:'admin'};
-  return {route:'home'};
-}
+  /***** App render functions *****/
+  async function renderHome(){
+    root.innerHTML='';
+    const header = el('header',{},[
+      el('div',{class:'logo'},[ el('div',{class:'dot'}), el('div',{style:'font-weight:800;font-size:18px'},['Real Apk']) ]),
+      el('div',{class:'search'},[
+        el('svg',{width:18,height:18,viewBox:'0 0 24 24',style:'opacity:.9'},[]),
+        (function(){ const ip=el('input',{placeholder:'Search apps...',style:'background:transparent;border:0;outline:0;color:inherit'}); ip.addEventListener('input',()=>{ renderHomeList(ip.value); }); return ip; })()
+      ])
+    ]);
+    root.appendChild(header);
 
-/* open new tab with post hash */
-function openPostInNewTab(id){
-  const url = window.location.origin + window.location.pathname + '#post:' + id;
-  window.open(url,'_blank');
-}
+    const featuredTitle = el('div',{},[ el('h2',{style:'margin:12px 0 2px;font-size:20px;font-weight:800'},['🔥 Featured Apps']), el('div',{class:'muted'},['Premium selections']) ]);
+    root.appendChild(featuredTitle);
 
-/* App */
-function App(){
-  const [apps,setApps] = useState([]);
-  const [featured,setFeatured] = useState([]);
-  const [loading,setLoading] = useState(true);
-  const [q,setQ] = useState('');
-  const [route,setRoute] = useState(getHash());
-  // listen to hash changes
-  useEffect(()=>{ function onHash(){ setRoute(getHash()); } window.addEventListener('hashchange',onHash); return ()=>window.removeEventListener('hashchange',onHash); },[]);
-  useEffect(()=> {
-    const unsub = db.collection('apps').orderBy('createdAt','desc').onSnapshot(snap=>{
-      const arr=[]; snap.forEach(d=>arr.push({id:d.id,...d.data()}));
-      setApps(arr);
-      setFeatured(arr.filter(a=>a.isFeatured).slice(0,8));
-      setLoading(false);
-    },err=>{ console.error(err); setLoading(false); });
-    return ()=>unsub();
-  },[]);
-  if(route.route === 'admin') return <AdminWrapper />;
-  if(route.route === 'post') return <DetailPage id={route.id} />;
-  // home
-  const filtered = apps.filter(a => {
-    if(!q) return true;
-    const s = q.toLowerCase();
-    return (a.name||'').toLowerCase().includes(s) || (a.description||'').toLowerCase().includes(s);
-  });
-  const latest = apps.slice(0,4);
-  return (
-    <div className="min-h-screen max-w-3xl mx-auto p-4">
-      <Header onSearch={setQ} />
-      <main className="mt-6">
-        {/* Featured */}
-        <section>
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-extrabold">🔥 Featured Apps</h2>
-              <div className="text-sm text-gray-400">Premium selections</div>
-            </div>
-            <div className="pill">Featured</div>
-          </div>
+    const featuredRow = el('div',{class:'featured-row'},[]);
+    root.appendChild(featuredRow);
 
-          <div className="mt-4 flex gap-4 overflow-x-auto no-scrollbar pb-4">
-            {featured.length===0 && <div className="text-gray-400">No featured apps</div>}
-            {featured.map(a=>(
-              <div key={a.id} className="featured-card card-shadow round-card" style={{display:'flex',flexDirection:'column',justifyContent:'space-between',minWidth:340,maxWidth:420}}>
-                <div style={{display:'flex',gap:16,alignItems:'center'}}>
-                  <img src={a.logo} alt="" style={{width:90,height:90,borderRadius:16,objectFit:'cover'}} onError={e=>e.target.src='https://via.placeholder.com/90'} />
-                  <div style={{flex:1}}>
-                    <div style={{fontWeight:800,fontSize:18}}>{a.name}</div>
-                    <div className="text-sm text-gray-400 mt-1">{a.description}</div>
-                    <div className="mt-2"><span className="pill text-sm">{a.type||'Original'}</span></div>
-                  </div>
-                  <div style={{textAlign:'right'}}>
-                    <div style={{fontWeight:800,color:'#ffd166'}}>{a.rating||'—'} ★</div>
-                    <div className="text-sm text-gray-400 mt-2">v{a.version||''}</div>
-                  </div>
-                </div>
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:12}}>
-                  <div className="text-gray-400 text-sm">Updated: {a.updatedAt ? new Date(a.updatedAt.seconds*1000).toLocaleDateString() : '—'}</div>
-                  <div>
-                    <button onClick={()=>openPostInNewTab(a.id)} className="bg-gradient-to-b from-blue-400 to-blue-600 text-white px-4 py-2 rounded-lg font-bold">VIEW</button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+    const stats = el('div',{style:'display:flex;gap:12px;margin-top:12px'},[
+      el('div',{class:'card',style:'min-width:0;flex:1;text-align:center'},[ el('div',{style:'font-weight:800;font-size:18px'},['5+']), el('div',{class:'muted'},['Total Apps']) ]),
+      el('div',{class:'card',style:'min-width:0;flex:1;text-align:center'},[ el('div',{style:'font-weight:800;font-size:18px'},['3+']), el('div',{class:'muted'},['MOD Apps']) ]),
+      el('div',{class:'card',style:'min-width:0;flex:1;text-align:center'},[ el('div',{style:'font-weight:800;font-size:18px'},['10+']), el('div',{class:'muted'},['Daily Updates']) ]),
+    ]);
+    root.appendChild(stats);
 
-        {/* Quick stats */}
-        <div className="mt-6 grid grid-cols-3 gap-3">
-          <div className="round-card card-shadow text-center p-4">
-            <div className="text-xl font-bold">5+</div>
-            <div className="text-gray-400">Total Apps</div>
-          </div>
-          <div className="round-card card-shadow text-center p-4">
-            <div className="text-xl font-bold">3+</div>
-            <div className="text-gray-400">MOD Apps</div>
-          </div>
-          <div className="round-card card-shadow text-center p-4">
-            <div className="text-xl font-bold">10+</div>
-            <div className="text-gray-400">Daily Updates</div>
-          </div>
-        </div>
+    const latestTitle = el('div',{style:'display:flex;justify-content:space-between;align-items:center;margin-top:18px'},[ el('div',{},[el('h3',{style:'font-size:18px;font-weight:800'},['Latest Posts']), el('div',{class:'muted'},['Newest uploads'])]) ]);
+    root.appendChild(latestTitle);
 
-        {/* Latest posts */}
-        <section className="mt-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-xl font-extrabold">Latest Posts</h3>
-              <div className="text-gray-400 text-sm">Newest uploads</div>
-            </div>
-            <div className="text-sm text-gray-400">Showing {latest.length}</div>
-          </div>
+    const latestGrid = el('div',{class:'grid'},[]);
+    root.appendChild(latestGrid);
 
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-            {latest.map(a=>(
-              <article key={a.id} className="p-4 round-card card-shadow flex gap-4 items-start">
-                <img src={a.logo} style={{width:84,height:84,borderRadius:14,objectFit:'cover'}} onError={e=>e.target.src='https://via.placeholder.com/84'} />
-                <div style={{flex:1}}>
-                  <div className="font-extrabold text-lg">{a.name}</div>
-                  <div className="text-gray-400 text-sm mt-1">{a.description}</div>
-                  <div className="mt-3 flex items-center justify-between">
-                    <div className="text-gray-400 text-sm">v{a.version||''}</div>
-                    <div className="flex gap-2">
-                      <button onClick={()=>openPostInNewTab(a.id)} className="px-3 py-1 rounded bg-gradient-to-b from-blue-400 to-blue-600 text-white font-bold">Details</button>
-                    </div>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-      </main>
-    </div>
-  );
-}
+    // load apps
+    const snap = await db.collection('apps').orderBy('createdAt','desc').get().catch(e=>{ console.error(e); });
+    const docs = snap ? snap.docs.map(d=>({id:d.id,...d.data()})) : [];
+    const featured = docs.filter(x=>x.isFeatured).slice(0,8);
+    const latest = docs.slice(0,4);
 
-/* Header */
-function Header({onSearch}){
-  const [q,setQ] = useState('');
-  useEffect(()=> onSearch(q),[q]);
-  return (
-    <header className="flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <div style={{width:44,height:44,borderRadius:40,background:'#8b5cf6'}}></div>
-        <div className="text-xl font-extrabold">Real Apk</div>
-      </div>
-      <div className="flex items-center gap-3">
-        <div className="search-pill" style={{background:'var(--card)',borderRadius:999,padding:'8px 12px',display:'flex',gap:8,alignItems:'center',minWidth:220}}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M21 21l-4.35-4.35" stroke="#9aa4b2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><circle cx="11" cy="11" r="6" stroke="#9aa4b2" strokeWidth="2" /></svg>
-          <input placeholder="Search apps..." onChange={(e)=>setQ(e.target.value)} style={{background:'transparent',border:'none',outline:'none',color:'white'}} />
-        </div>
-      </div>
-    </header>
-  );
-}
-
-/* Detail Page */
-function DetailPage({id}){
-  const [app,setApp] = useState(null);
-  const [loading,setLoading] = useState(true);
-  const [countdown,setCountdown] = useState(3);
-  const mounted = useRef(true);
-
-  useEffect(()=>{
-    mounted.current = true;
-    db.collection('apps').doc(id).get().then(doc=>{
-      if(!mounted.current) return;
-      if(doc.exists) setApp({id:doc.id,...doc.data()});
-      setLoading(false);
-    }).catch(err=>{ console.error(err); setLoading(false); });
-
-    return ()=>{ mounted.current=false; };
-  },[id]);
-
-  function startDownload(){
-    // open loader page in same tab for better UX; we open a temporary internal view using hash #dl:
-    const url = window.location.origin + window.location.pathname + '#dl:' + id;
-    // open new tab with loader and redirect
-    window.open(url,'_blank');
-  }
-
-  return (
-    <div style={{minHeight:'100vh'}} className="hero-bg p-4">
-      <div className="max-w-3xl mx-auto">
-        <div className="p-6 round-card card-shadow text-center">
-          {!loading && app ? (
-            <>
-              <img src={app.logo} style={{width:120,height:120,borderRadius:18,objectFit:'cover',margin:'0 auto'}} onError={e=>e.target.src='https://via.placeholder.com/120'} />
-              <h1 className="text-2xl font-extrabold mt-4">{app.name}</h1>
-              <div className="text-gray-400 mt-2">{app.description}</div>
-              <div className="mt-4 flex items-center justify-center gap-4">
-                <div className="pill">v{app.version||''}</div>
-                <div className="pill">{app.type}</div>
-                <div className="pill">{app.rating} ★</div>
-              </div>
-
-              {/* screenshots */}
-              <div className="mt-6 text-left">
-                <div className="text-lg font-bold mb-2">Screenshots</div>
-                <div className="screens-slider no-scrollbar">
-                  {(app.screenshots || []).length===0 ? <img src={app.logo} style={{width:220,height:360,borderRadius:12}}/> : (app.screenshots || []).map((s,i)=>(
-                    <img key={i} src={s} alt={`s${i}`} onError={e=>e.target.src='https://via.placeholder.com/220x360'} />
-                  ))}
-                </div>
-              </div>
-
-              {/* description */}
-              <div className="mt-6 text-left">
-                <div className="text-lg font-bold">Description</div>
-                <div className="text-gray-300 mt-2" dangerouslySetInnerHTML={{__html: app.fullDescription || app.description || ''}} />
-              </div>
-
-              <div className="mt-6 flex items-center justify-center gap-4">
-                <button onClick={startDownload} className="bg-gradient-to-b from-indigo-500 to-blue-600 px-6 py-3 rounded-2xl font-bold text-white">Download</button>
-                <a className="px-4 py-2 rounded-lg border border-gray-600 text-gray-300" href={app.playStoreLink||'#'} target="_blank" rel="noreferrer">Play Store</a>
-              </div>
-            </>
-          ) : loading ? <div className="py-20">Loading...</div> : <div className="py-20">App not found</div>}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* Loader redirect page: hash #dl:<id> */
-function DownloadRedirector(){
-  const [info,setInfo] = useState(null);
-  const [s,setS] = useState(3);
-  useEffect(()=>{
-    const h = window.location.hash||'';
-    if(!h.startsWith('#dl:')) return;
-    const id = h.slice(4);
-    let mounted=true;
-    db.collection('apps').doc(id).get().then(doc=>{
-      if(!mounted) return;
-      if(doc.exists) setInfo({id:doc.id,...doc.data()});
-      // countdown
-      const iv = setInterval(()=> setS(x=>{ if(x<=1){ clearInterval(iv); return 0; } return x-1; }),1000);
-      setTimeout(()=>{
-        if(doc.exists){
-          const d = doc.data();
-          if(d && d.apkLink) window.location.href = d.apkLink;
-          else window.location.href = window.location.origin + window.location.pathname;
-        } else window.location.href = window.location.origin + window.location.pathname;
-      }, 3000);
-    }).catch(()=> window.location.href = window.location.origin + window.location.pathname);
-    return ()=> mounted=false;
-  },[]);
-  if(!window.location.hash.startsWith('#dl:')) return null;
-  return (
-    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:24,background:'linear-gradient(180deg,#071029,#0b1220)'}}>
-      <div className="round-card p-6 text-center card-shadow" style={{maxWidth:520}}>
-        <div className="loader-ring mx-auto"></div>
-        <div className="text-xl font-bold mt-4">Preparing your download...</div>
-        <div className="text-gray-400 mt-2">{ info ? info.name : 'Please wait' }</div>
-        <div className="mt-4 font-bold">{ s>0 ? `Redirecting in ${s}s` : 'Redirecting...' }</div>
-      </div>
-    </div>
-  );
-}
-
-/* Admin wrapper accessed only via #adminsecret and password prompt (no visible admin button) */
-function AdminWrapper(){
-  // show password modal before showing admin panel
-  const [authed,setAuthed] = useState(false);
-  const [loaded,setLoaded] = useState(false);
-  useEffect(()=>{ ensureAdminDoc(); },[]);
-  async function ensureAdminDoc(){
-    const ref = db.collection('meta').doc('admin');
-    const doc = await ref.get();
-    if(!doc.exists) await ref.set({ password: 'admin123' });
-    setLoaded(true);
-  }
-  async function checkPw(pw){
-    const doc = await db.collection('meta').doc('admin').get();
-    const pwdb = doc.exists ? doc.data().password : 'admin123';
-    if(pw===pwdb){ setAuthed(true); return true; }
-    alert('Incorrect password'); return false;
-  }
-  if(!loaded) return <div className="p-6 text-center">Checking...</div>;
-  if(!authed) return <AdminPassword onSubmit={checkPw} />;
-  return <AdminPanel />;
-}
-function AdminPassword({onSubmit}){
-  const [pw,setPw] = useState('');
-  return (
-    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
-      <div className="round-card p-6 card-shadow" style={{width:320}}>
-        <h3 className="text-xl font-bold">Admin Access</h3>
-        <p className="text-gray-400 text-sm">Enter admin password (from Firestore)</p>
-        <input className="w-full mt-3 p-2 rounded bg-gray-800" value={pw} onChange={e=>setPw(e.target.value)} placeholder="password" />
-        <div className="mt-4 flex justify-end gap-2">
-          <button onClick={()=>onSubmit(pw)} className="px-4 py-2 bg-blue-600 rounded text-white">Open</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* Admin Panel: CRUD with screenshots array field */
-function AdminPanel(){
-  const [items,setItems] = useState([]);
-  const [form,setForm] = useState({ name:'', logo:'', description:'', fullDescription:'', version:'', rating:'4.5', apkLink:'', playStoreLink:'', type:'MOD', isFeatured:false, screenshots:[] });
-  const [editing,setEditing] = useState(null);
-  const [query,setQuery] = useState('');
-  useEffect(()=> {
-    const unsub = db.collection('apps').orderBy('createdAt','desc').onSnapshot(snap=>{
-      const arr=[]; snap.forEach(d=>arr.push({id:d.id,...d.data()})); setItems(arr);
+    // populate featured
+    featuredRow.innerHTML='';
+    if(!featured.length) featuredRow.appendChild(el('div',{},['No featured apps yet']));
+    featured.forEach(a=>{
+      const c = el('div',{class:'card'},[
+        el('div',{class:'small-card'},[ el('img',{class:'logo-img',src:a.logo||'',on:'', alt:''}), el('div',{},[ el('div',{style:'font-weight:800'},[a.name||'Untitled']), el('div',{class:'muted'},[a.description||'']) ]) ]),
+        el('div',{},[
+          el('div',{class:'muted',style:'margin-top:12px'},['v'+(a.version||'')]),
+          el('div',{},[ el('button',{class:'primary', on:{ ev:'click', fn:()=> openPostNewTab(a.id) }},['VIEW']) ])
+        ])
+      ]);
+      featuredRow.appendChild(c);
     });
-    return ()=>unsub();
-  },[]);
-  function loadToForm(it){
-    setEditing(it.id); setForm({...it});
-    window.scrollTo({top:0,behavior:'smooth'});
+
+    // populate latest
+    latestGrid.innerHTML='';
+    latest.forEach(a=>{
+      const card = el('article',{class:'card'},[
+        el('div',{class:'small-card'},[ el('img',{class:'logo-img',src:a.logo||'',alt:''}), el('div',{},[ el('div',{style:'font-weight:800'},[a.name||'Untitled']), el('div',{class:'muted'},[a.description||'']) ]) ]),
+        el('div',{style:'display:flex;justify-content:space-between;align-items:center;margin-top:12px'},[ el('div',{class:'muted'},['v'+(a.version||'')]), el('div',{},[ el('button',{class:'primary', on:{ev:'click',fn:()=> openPostNewTab(a.id)}},['Details']) ]) ])
+      ]);
+      latestGrid.appendChild(card);
+    });
   }
-  function resetForm(){ setEditing(null); setForm({ name:'', logo:'', description:'', fullDescription:'', version:'', rating:'4.5', apkLink:'', playStoreLink:'', type:'MOD', isFeatured:false, screenshots:[] }); }
-  async function submit(){
-    if(!form.name) return alert('Name required');
-    const payload = {...form, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
-    if(editing){
-      await db.collection('apps').doc(editing).update(payload);
-      resetForm();
-    } else {
-      await db.collection('apps').add({...payload, createdAt: firebase.firestore.FieldValue.serverTimestamp()});
-      resetForm();
+
+  async function renderHomeList(q=''){
+    // If search used, just show filtered list (simplified)
+    // For simplicity re-render whole home
+    await renderHome();
+    if(q){
+      const nodes = Array.from(document.querySelectorAll('.card'));
+      nodes.forEach(n=>{
+        if(n.innerText.toLowerCase().includes(q.toLowerCase())) n.style.display='block'; else n.style.display='none';
+      });
     }
   }
-  async function remove(id){
-    if(!confirm('Delete this app?')) return;
-    await db.collection('apps').doc(id).delete();
+
+  async function renderPost(id){
+    root.innerHTML='';
+    // fetch doc
+    const doc = await db.collection('apps').doc(id).get().catch(e=>null);
+    if(!doc || !doc.exists){
+      root.appendChild(el('div',{},['Post not found']));
+      return;
+    }
+    const a = {id:doc.id,...doc.data()};
+    const hero = el('div',{class:'detail-hero'},[
+      el('img',{src:a.logo,style:'width:140px;height:140px;border-radius:12px;object-fit:cover;display:block;margin:0 auto',alt:''}),
+      el('h1',{style:'text-align:center;margin-top:12px;font-size:20px;font-weight:800'},[a.name||'Untitled']),
+      el('div',{style:'text-align:center',class:'muted'},[a.description||'']),
+      el('div',{style:'display:flex;gap:8px;justify-content:center;margin-top:10px'},[
+        el('div',{class:'pill'},['v'+(a.version||'')]),
+        el('div',{class:'pill'},[a.type||'Original']),
+        el('div',{class:'pill'},[(a.rating||'')+' ★'])
+      ]),
+      el('div',{style:'margin-top:14px;display:flex;gap:10px;justify-content:center'},[
+        el('button',{class:'primary', on:{ev:'click',fn:()=> openDownloadLoader(a.id)}},['Download']),
+        el('a',{href:a.playStoreLink||'#',target:'_blank',style:'padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);align-self:center'},['Play Store'])
+      ])
+    ]);
+    root.appendChild(el('div',{},[hero]));
+
+    // screenshots
+    const scs = el('div',{style:'margin-top:16px'},[ el('div',{style:'font-weight:800'},['Screenshots']), el('div',{class:'screens'},[]) ]);
+    root.appendChild(scs);
+    const scRow = scs.querySelector('.screens');
+    (a.screenshots || []).forEach(s=> scRow.appendChild(el('img',{src:s,alt:''})));
+    if(!(a.screenshots||[]).length) scRow.appendChild(el('img',{src:a.logo,alt:''}));
+
+    // description
+    root.appendChild(el('div',{style:'margin-top:16px',class:'card'},[
+      el('div',{style:'font-weight:800'},['Description']),
+      el('div',{style:'margin-top:8px;color:#dbeafe'},[ a.fullDescription ? (function(){ const d = document.createElement('div'); d.innerHTML = a.fullDescription; return d; })() : (a.description || '') ])
+    ]));
   }
-  async function changeAdminPassword(){
-    const newPw = prompt('Enter new admin password');
-    if(!newPw) return;
-    await db.collection('meta').doc('admin').set({ password: newPw });
-    alert('Password updated');
+
+  async function renderDownloadLoader(){
+    root.innerHTML='';
+    const h = location.hash||'';
+    if(!h.startsWith('#dl:')){ renderHome(); return; }
+    const id = h.slice(4);
+    // fetch doc and redirect after 3s
+    const doc = await db.collection('apps').doc(id).get().catch(e=>null);
+    const a = doc && doc.exists ? {id:doc.id,...doc.data()} : null;
+    const box = el('div',{class:'card',style:'text-align:center;max-width:520;margin:30px auto'},[
+      el('div',{class:'loader-ring'},[]),
+      el('div',{style:'font-weight:800;margin-top:10px;font-size:18px'},['Preparing your download...']),
+      el('div',{class:'muted',style:'margin-top:6px'},[ a ? a.name : 'Please wait' ]),
+      el('div',{style:'margin-top:12px',id:'countdown'},['Redirecting in 3s'])
+    ]);
+    root.appendChild(box);
+    let t=3;
+    const iv = setInterval(()=>{ t--; const cd = document.getElementById('countdown'); if(cd) cd.innerText = t>0 ? 'Redirecting in '+t+'s' : 'Redirecting...'; if(t<=0){ clearInterval(iv); if(a && a.apkLink) location.href = a.apkLink; else location.href = location.origin + location.pathname; } },1000);
   }
-  const shown = items.filter(it => { if(!query) return true; const s=query.toLowerCase(); return (it.name||'').toLowerCase().includes(s) || (it.description||'').toLowerCase().includes(s); });
-  return (
-    <div className="min-h-screen p-4 max-w-3xl mx-auto">
-      <div className="round-card p-4 card-shadow">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xl font-bold">Admin Dashboard</h3>
-          <div className="flex gap-2">
-            <button onClick={changeAdminPassword} className="px-3 py-1 rounded bg-yellow-400 text-black">Change Admin Password</button>
-            <a className="px-3 py-1 rounded bg-gray-700" href="#" onClick={(e)=>{ e.preventDefault(); window.location.hash=''; window.location.reload(); }}>Exit Admin</a>
-          </div>
-        </div>
 
-        <div className="mt-4 grid gap-2">
-          <input placeholder="App Name" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} className="w-full p-2 rounded bg-gray-800" />
-          <input placeholder="Logo URL" value={form.logo} onChange={e=>setForm({...form,logo:e.target.value})} className="w-full p-2 rounded bg-gray-800" />
-          <input placeholder="Category / Short Desc" value={form.description} onChange={e=>setForm({...form,description:e.target.value})} className="w-full p-2 rounded bg-gray-800" />
-          <textarea placeholder="Full HTML Description (optional)" value={form.fullDescription} onChange={e=>setForm({...form,fullDescription:e.target.value})} className="w-full p-2 rounded bg-gray-800" rows="4" />
-          <input placeholder="Version" value={form.version} onChange={e=>setForm({...form,version:e.target.value})} className="w-full p-2 rounded bg-gray-800" />
-          <input placeholder="Rating" value={form.rating} onChange={e=>setForm({...form,rating:e.target.value})} className="w-full p-2 rounded bg-gray-800" />
-          <input placeholder="APK Link (direct)" value={form.apkLink} onChange={e=>setForm({...form,apkLink:e.target.value})} className="w-full p-2 rounded bg-gray-800" />
-          <input placeholder="Play Store Link (optional)" value={form.playStoreLink} onChange={e=>setForm({...form,playStoreLink:e.target.value})} className="w-full p-2 rounded bg-gray-800" />
-          <input placeholder="Screenshot URL (comma separated)" value={(form.screenshots||[]).join(',')} onChange={e=>setForm({...form,screenshots: e.target.value.split(',').map(s=>s.trim()).filter(Boolean) })} className="w-full p-2 rounded bg-gray-800" />
-          <div className="flex gap-2">
-            <select value={form.type} onChange={e=>setForm({...form,type:e.target.value})} className="p-2 rounded bg-gray-800">
-              <option>MOD</option><option>Original</option>
-            </select>
-            <label className="flex items-center gap-2"><input type="checkbox" checked={form.isFeatured} onChange={e=>setForm({...form,isFeatured:e.target.checked})} /> Featured</label>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={submit} className="px-4 py-2 bg-blue-600 rounded text-white">{editing ? 'Update App' : 'Post New App'}</button>
-            <button onClick={resetForm} className="px-4 py-2 rounded border">Reset</button>
-          </div>
-        </div>
+  /* Admin flow: only via #adminsecret */
+  async function renderAdmin(){
+    // show password prompt first
+    const pw = prompt('Enter admin password (fetched from Firestore)'); if(pw===null) { history.back(); return; }
+    // ensure admin doc exists
+    const ref = db.collection('meta').doc('admin');
+    const doc = await ref.get().catch(()=>null);
+    if(!doc || !doc.exists){ await ref.set({ password: 'admin123' }); }
+    const cur = (await ref.get()).data().password;
+    if(pw !== cur){ alert('Incorrect password'); history.back(); return; }
+    // now show admin UI
+    root.innerHTML = '';
+    const panel = el('div',{},[
+      el('h2',{style:'font-size:18px;font-weight:800'},['Admin Dashboard']),
+      el('div',{class:'admin-form'},[
+        el('input',{placeholder:'App name',id:'af_name'}),
+        el('input',{placeholder:'Logo URL',id:'af_logo'}),
+        el('input',{placeholder:'Short description',id:'af_desc'}),
+        el('textarea',{placeholder:'Full HTML description (optional)',id:'af_full',rows:4}),
+        el('input',{placeholder:'Version',id:'af_ver'}),
+        el('input',{placeholder:'Rating',id:'af_rating'}),
+        el('input',{placeholder:'APK Link (direct)',id:'af_apk'}),
+        el('input',{placeholder:'Play Store link',id:'af_play'}),
+        el('input',{placeholder:'Screenshots (comma separated URLs)',id:'af_screens'}),
+        el('div',{class:'admin-actions'},[
+          el('button',{class:'primary', on:{ev:'click',fn:async ()=>{ const payload = {
+            name:document.getElementById('af_name').value,
+            logo:document.getElementById('af_logo').value,
+            description:document.getElementById('af_desc').value,
+            fullDescription:document.getElementById('af_full').value,
+            version:document.getElementById('af_ver').value,
+            rating:document.getElementById('af_rating').value,
+            apkLink:document.getElementById('af_apk').value,
+            playStoreLink:document.getElementById('af_play').value,
+            screenshots:(document.getElementById('af_screens').value||'').split(',').map(s=>s.trim()).filter(Boolean),
+            type:'MOD',
+            isFeatured:false,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          }; if(!payload.name) return alert('Name required'); await db.collection('apps').add(payload); alert('Added'); location.hash=''; renderHome(); } }},['Post New App']),
+          el('button',{on:{ev:'click',fn:()=>{ location.hash=''; renderHome(); }}},['Exit Admin'])
+        ])
+      ])
+    ]);
+    root.appendChild(panel);
 
-        <div className="mt-6">
-          <input placeholder="Search in admin..." value={query} onChange={e=>setQuery(e.target.value)} className="w-full p-2 rounded bg-gray-800" />
-          <div className="mt-4 grid gap-3">
-            {shown.map(it=>(
-              <div key={it.id} className="p-3 round-card card-shadow flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <img src={it.logo} style={{width:56,height:56,borderRadius:10}} onError={e=>e.target.src='https://via.placeholder.com/56'} />
-                  <div>
-                    <div className="font-bold">{it.name}</div>
-                    <div className="text-gray-400 text-sm">{it.description}</div>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={()=>loadToForm(it)} className="px-3 py-1 bg-green-500 rounded">Edit</button>
-                  <button onClick={()=>remove(it.id)} className="px-3 py-1 bg-red-500 rounded">Delete</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+    // list existing
+    const listWrap = el('div',{style:'margin-top:16px'},[]);
+    root.appendChild(listWrap);
+    const snap = await db.collection('apps').orderBy('createdAt','desc').get();
+    const docs = snap.docs.map(d=>({id:d.id,...d.data()}));
+    docs.forEach(it=>{
+      const row = el('div',{class:'card',style:'display:flex;justify-content:space-between;align-items:center;margin-top:8px'},[
+        el('div',{style:'display:flex;gap:12px;align-items:center'},[ el('img',{src:it.logo,style:'width:56px;height:56px;border-radius:8px',alt:''}), el('div',{},[ el('div',{style:'font-weight:800'},[it.name]), el('div',{class:'muted'},[it.description]) ]) ]),
+        el('div',{},[
+          el('button',{on:{ev:'click',fn:()=>{ document.getElementById('af_name').value=it.name; document.getElementById('af_logo').value=it.logo; document.getElementById('af_desc').value=it.description; document.getElementById('af_full').value=it.fullDescription||''; document.getElementById('af_ver').value=it.version||''; document.getElementById('af_rating').value=it.rating||''; document.getElementById('af_apk').value=it.apkLink||''; document.getElementById('af_play').value=it.playStoreLink||''; document.getElementById('af_screens').value=(it.screenshots||[]).join(',') } }},['Load']),
+          el('button',{on:{ev:'click',fn:async ()=>{ if(!confirm('Delete?')) return; await db.collection('apps').doc(it.id).delete(); alert('Deleted'); renderAdmin(); }}},['Delete'])
+        ])
+      ]);
+      listWrap.appendChild(row);
+    });
+  }
 
-/* Mount root and conditional loader page */
-function Root(){
-  // if hash starts with #dl: render DownloadRedirector (full screen)
-  if(window.location.hash && window.location.hash.startsWith('#dl:')) return <DownloadRedirector />;
-  return <App />;
-}
+  /***** Router: check hash and render appropriate view *****/
+  async function router(){
+    const h = getHash();
+    if(h.m === 'home') return renderHome();
+    if(h.m === 'post') return renderPost(h.id);
+    if(h.m === 'dl') return renderDownloadLoader();
+    if(h.m === 'admin') return renderAdmin();
+    return renderHome();
+  }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<Root />);
+  // initial render & listen for hash changes
+  window.addEventListener('hashchange', router);
+  router();
 
-</script>
+  </script>
 </body>
 </html>
