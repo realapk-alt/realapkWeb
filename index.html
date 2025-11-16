@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ApkLit - Single File React + Tailwind (Dark/Light)</title>
+  <!-- Tailwind Play CDN (fast for prototypes) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* small card shadow like reference */
+    .card-shadow{ box-shadow: 0 6px 18px rgba(3,7,18,0.35); }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100">
+
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/babel-standalone@6.26.0/babel.min.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+/*********************
+ *  CONFIG - INSERTED
+ *********************/
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDAoDGn6lymDsAia_SNue37MiyfD80pFKU",
+  authDomain: "website-builder-e975c.firebaseapp.com",
+  projectId: "website-builder-e975c",
+  storageBucket: "website-builder-e975c.firebasestorage.app",
+  messagingSenderId: "200054863866",
+  appId: "1:200054863866:web:fe88010678557c7f9f9643",
+  measurementId: "G-84KLJLYTPZ"
+};
+
+// Default admin password (only used to create initial record if missing)
+const DEFAULT_ADMIN_PASSWORD = 'admin123';
+
+/*********************
+ *  Firebase init
+ *********************/
+firebase.initializeApp(FIREBASE_CONFIG);
+const db = firebase.firestore();
+
+/*********************
+ * Helpers
+ *********************/
+function saveTheme(theme){ localStorage.setItem('apk_theme', theme); document.documentElement.classList.toggle('light', theme==='light'); }
+function loadTheme(){ return localStorage.getItem('apk_theme') || 'dark'; }
+
+/*********************
+ * App Component
+ *********************/
+function App(){
+  const [theme, setTheme] = useState(loadTheme());
+  const [apps, setApps] = useState([]);
+  const [featured, setFeatured] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showPassPrompt, setShowPassPrompt] = useState(false);
+  const [adminPasswordLoaded, setAdminPasswordLoaded] = useState(false);
+  const adminPassRef = useRef('');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(()=>{ // theme apply
+    saveTheme(theme);
+    if(theme==='light'){
+      document.body.classList.remove('bg-slate-900');
+      document.body.classList.add('bg-slate-50');
+      document.body.classList.remove('text-slate-100');
+      document.body.classList.add('text-slate-900');
+    } else {
+      document.body.classList.add('bg-slate-900');
+      document.body.classList.remove('bg-slate-50');
+      document.body.classList.add('text-slate-100');
+      document.body.classList.remove('text-slate-900');
+    }
+  },[theme]);
+
+  useEffect(()=>{
+    const unsub = db.collection('apps').orderBy('createdAt','desc')
+      .onSnapshot(snap=>{
+        const list = [];
+        snap.forEach(doc=> list.push({ id: doc.id, ...doc.data() }));
+        setApps(list);
+        setFeatured(list.filter(a=>a.isFeatured));
+        setLoading(false);
+      }, err=>{ console.error(err); setLoading(false); });
+
+    if(window.location.hash === '#adminsecret'){
+      setShowPassPrompt(true);
+      ensureAdminPasswordExists();
+    }
+
+    return ()=>unsub();
+  },[]);
+
+  async function ensureAdminPasswordExists(){
+    const docRef = db.collection('meta').doc('admin');
+    const doc = await docRef.get();
+    if(!doc.exists){
+      await docRef.set({ password: DEFAULT_ADMIN_PASSWORD });
+    }
+    setAdminPasswordLoaded(true);
+  }
+
+  async function checkAdminPassword(input){
+    const doc = await db.collection('meta').doc('admin').get();
+    const pw = doc.exists ? doc.data().password : DEFAULT_ADMIN_PASSWORD;
+    if(input === pw){ setIsAdmin(true); setShowPassPrompt(false); adminPassRef.current = input; return true; }
+    alert('Incorrect password');
+    return false;
+  }
+
+  const filtered = apps.filter(a=>{
+    if(!searchTerm) return true;
+    const s = searchTerm.toLowerCase();
+    return (a.name||'').toLowerCase().includes(s) || (a.description||'').toLowerCase().includes(s);
+  });
+
+  return (
+    <div className="min-h-screen p-4 max-w-3xl mx-auto">
+      <Header theme={theme} setTheme={setTheme} onAdminClick={()=>{ window.location.hash = '#adminsecret'; setShowPassPrompt(true); ensureAdminPasswordExists(); }} />
+
+      <main className="mt-6">
+        <section>
+          <h2 className="text-2xl font-bold flex items-center gap-2">🔥 Featured Apps</h2>
+          <p className="text-slate-400">Premium Selections</p>
+          <div className="mt-4 flex gap-4 overflow-x-auto pb-4">
+            {featured.length===0 && <div className="text-slate-400">No featured apps yet.</div>}
+            {featured.map(app=> (
+              <div key={app.id} className="min-w-[260px] p-4 rounded-2xl bg-slate-800 card-shadow">
+                <div className="flex gap-3 items-center">
+                  <img src={app.logo} alt="logo" className="w-14 h-14 rounded-lg object-cover" onError={(e)=>e.target.src='https://via.placeholder.com/64'} />
+                  <div>
+                    <div className="font-semibold">{app.name}</div>
+                    <div className="text-sm text-slate-400">{app.description}</div>
+                    <div className="mt-2"><span className="px-3 py-1 bg-slate-700 rounded-full text-sm">{app.type||'Original'}</span></div>
+                  </div>
+                </div>
+                <div className="mt-4 flex items-center justify-between">
+                  <a href={app.apkLink} className="px-4 py-2 rounded-lg bg-sky-500 text-white">DOWNLOAD</a>
+                  <div className="flex items-center gap-2"><span className="text-yellow-400">★</span>{app.rating||'—'}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-bold">All Apps</h3>
+              <p className="text-slate-400">Explore Everything</p>
+            </div>
+            <div className="w-48">
+              <input value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder="Search apps..." className="w-full px-3 py-2 rounded-md bg-slate-800 text-slate-100" />
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-4">
+            {loading && <div className="text-slate-400">Loading...</div>}
+            {filtered.map(app=> (
+              <div key={app.id} className="p-4 rounded-2xl bg-slate-800 flex items-center gap-4 card-shadow">
+                <img src={app.logo} className="w-14 h-14 rounded-lg object-cover" onError={(e)=>e.target.src='https://via.placeholder.com/64'} />
+                <div className="flex-1">
+                  <div className="font-semibold text-lg">{app.name} <span className="ml-2 text-xs px-2 py-1 rounded bg-rose-500 text-white">{app.type}</span></div>
+                  <div className="text-slate-400">{app.description}</div>
+                  <div className="text-slate-400 text-sm">v{app.version||''}</div>
+                </div>
+                <div className="text-right">
+                  <div className="mb-2">{app.rating || '—'} ★</div>
+                  <a href={app.apkLink} className="px-3 py-2 rounded-md bg-sky-500 text-white">Download</a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {isAdmin && <AdminPanel db={db} adminPassRef={adminPassRef} />}
+
+      </main>
+
+      {showPassPrompt && <PasswordModal onClose={()=>setShowPassPrompt(false)} onSubmit={checkAdminPassword} loaded={adminPasswordLoaded} />}
+    </div>
+  );
+}
+
+function Header({theme,setTheme,onAdminClick}){
+  return (
+    <header className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-full bg-purple-600"></div>
+        <div className="text-xl font-bold">ApkLit</div>
+      </div>
+      <div className="flex items-center gap-3">
+        <div className="hidden md:block w-64">
+          <input placeholder="Search Apps" className="w-full px-3 py-2 rounded-full bg-slate-800 text-slate-300" />
+        </div>
+        <button className="px-3 py-2 rounded-md" onClick={()=>setTheme(theme==='dark'?'light':'dark')}>{theme==='dark'?'☀️':'🌙'}</button>
+        <button title="Admin (secret)" onClick={onAdminClick} className="px-3 py-2">⬇️</button>
+      </div>
+    </header>
+  );
+}
+
+function PasswordModal({onClose,onSubmit,loaded}){
+  const [pw, setPw] = useState('');
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
+      <div className="bg-slate-800 p-6 rounded-lg w-80">
+        <h4 className="text-lg font-semibold">Admin Access</h4>
+        <p className="text-slate-400 text-sm">Enter admin password (fetched from Firestore)</p>
+        <input className="mt-3 w-full px-3 py-2 rounded bg-slate-700" value={pw} onChange={e=>setPw(e.target.value)} />
+        <div className="mt-4 flex justify-end gap-2">
+          <button onClick={onClose} className="px-3 py-1 rounded">Cancel</button>
+          <button onClick={async()=>{ if(!loaded){ alert('waiting...'); return;} await onSubmit(pw); }} className="px-3 py-1 rounded bg-sky-500 text-white">Open</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminPanel({db, adminPassRef}){
+  const [items, setItems] = useState([]);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState({ name:'', logo:'', description:'', rating:'4.5', apkLink:'', playStoreLink:'', type:'MOD', isFeatured:false, version:'' });
+  const [query, setQuery] = useState('');
+
+  useEffect(()=>{
+    const unsub = db.collection('apps').orderBy('createdAt','desc').onSnapshot(snap=>{
+      const arr = [];
+      snap.forEach(d=>arr.push({id:d.id, ...d.data()}));
+      setItems(arr);
+    });
+    return ()=>unsub();
+  },[]);
+
+  function startEdit(item){ setEditing(item.id); setForm({...item}); window.scrollTo({top:0,behavior:'smooth'}); }
+  function resetForm(){ setEditing(null); setForm({ name:'', logo:'', description:'', rating:'4.5', apkLink:'', playStoreLink:'', type:'MOD', isFeatured:false, version:'' }); }
+
+  async function submit(){
+    if(!form.name) return alert('Name required');
+    if(editing){
+      await db.collection('apps').doc(editing).update({...form, updatedAt: firebase.firestore.FieldValue.serverTimestamp()});
+      resetForm();
+    } else {
+      await db.collection('apps').add({...form, createdAt: firebase.firestore.FieldValue.serverTimestamp()});
+      resetForm();
+    }
+  }
+
+  async function remove(id){ if(!confirm('Delete this app?')) return; await db.collection('apps').doc(id).delete(); }
+
+  async function changeAdminPassword(){
+    const newPw = prompt('Enter new admin password');
+    if(!newPw) return;
+    await db.collection('meta').doc('admin').set({ password: newPw });
+    adminPassRef.current = newPw;
+    alert('Password updated');
+  }
+
+  const shown = items.filter(it=>{
+    if(!query) return true;
+    const s=query.toLowerCase(); return (it.name||'').toLowerCase().includes(s) || (it.description||'').toLowerCase().includes(s);
+  });
+
+  return (
+    <section className="mt-8 p-4 rounded-2xl bg-slate-800 card-shadow">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-bold">Admin Dashboard</h3>
+        <div className="flex gap-2">
+          <button onClick={changeAdminPassword} className="px-3 py-1 rounded bg-amber-500 text-black">Change Admin Password</button>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-2">
+        <input placeholder="App Name" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} className="w-full px-3 py-2 rounded bg-slate-700" />
+        <input placeholder="Logo URL" value={form.logo} onChange={e=>setForm({...form,logo:e.target.value})} className="w-full px-3 py-2 rounded bg-slate-700" />
+        <input placeholder="Category / Description" value={form.description} onChange={e=>setForm({...form,description:e.target.value})} className="w-full px-3 py-2 rounded bg-slate-700" />
+        <input placeholder="Version" value={form.version} onChange={e=>setForm({...form,version:e.target.value})} className="w-full px-3 py-2 rounded bg-slate-700" />
+        <input placeholder="Rating" value={form.rating} onChange={e=>setForm({...form,rating:e.target.value})} className="w-full px-3 py-2 rounded bg-slate-700" />
+        <input placeholder="APK Link" value={form.apkLink} onChange={e=>setForm({...form,apkLink:e.target.value})} className="w-full px-3 py-2 rounded bg-slate-700" />
+        <input placeholder="Play Store Link (optional)" value={form.playStoreLink} onChange={e=>setForm({...form,playStoreLink:e.target.value})} className="w-full px-3 py-2 rounded bg-slate-700" />
+        <div className="flex gap-2">
+          <select value={form.type} onChange={e=>setForm({...form,type:e.target.value})} className="px-3 py-2 rounded bg-slate-700">
+            <option>MOD</option>
+            <option>Original</option>
+          </select>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={form.isFeatured} onChange={e=>setForm({...form,isFeatured:e.target.checked})} /> Featured</label>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={submit} className="px-3 py-2 rounded bg-sky-500 text-white">{editing ? 'Update App' : 'Post New App'}</button>
+          <button onClick={resetForm} className="px-3 py-2 rounded border">Reset</button>
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <input placeholder="Search in admin" value={query} onChange={e=>setQuery(e.target.value)} className="w-full px-3 py-2 rounded bg-slate-700" />
+        <div className="mt-4 grid gap-2">
+          {shown.map(it=> (
+            <div key={it.id} className="p-3 rounded bg-slate-900 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <img src={it.logo} className="w-12 h-12 rounded object-cover" onError={(e)=>e.target.src='https://via.placeholder.com/48'} />
+                <div>
+                  <div className="font-semibold">{it.name}</div>
+                  <div className="text-slate-400 text-sm">{it.description}</div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={()=>startEdit(it)} className="px-3 py-1 rounded bg-emerald-500">Edit</button>
+                <button onClick={()=>remove(it.id)} className="px-3 py-1 rounded bg-red-500">Delete</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+
+<!--
+  HOSTING / USAGE INSTRUCTIONS
+  1) Create a Firebase project at https://console.firebase.google.com/
+  2) Create Firestore database in test mode (or locked, but ensure rules allow reads/writes you need while testing).
+  3) In Project Settings -> Your apps, copy the web config and paste into FIREBASE_CONFIG at top of this file.
+  4) Save this file as index.html and commit to GitHub.
+  5) To host: Enable GitHub Pages on the repo, set branch to main and root folder. The single file will be served.
+  6) Open the hosted URL. To access Admin Panel: append #adminsecret to the URL (example: https://youruser.github.io/yourrepo/#adminsecret). A password prompt will appear. The password is fetched from Firestore (collection 'meta', doc 'admin'). If it does not exist, the app will create it with default 'admin123'.
+  7) From Admin Dashboard you can post/edit/delete apps. App documents are stored in collection 'apps' with fields: name, logo, description, rating, apkLink, playStoreLink, type, isFeatured, version, createdAt.
+
+  SECURITY NOTE: This example stores and checks admin password client-side using Firestore. For production please add Firebase Authentication + server-side rules to secure admin endpoints.
+-->
+</body>
+</html>
